@@ -3,9 +3,12 @@ package com.thelightphone.lp3Keyboard.ui
 import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,15 +16,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Icon
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.thelightphone.lp3Keyboard.ui.layout.EnQwerty
+import com.thelightphone.lp3Keyboard.ui.layout.EnShared
 import com.thelightphone.lp3Keyboard.ui.layout.Layout
 import com.thelightphone.lp3Keyboard.ui.viewmodel.Lp3KeyboardViewModel
 import com.thelightphone.lp3Keyboard.ui.viewmodel.defaultEmojis
@@ -62,15 +69,19 @@ fun Lp3KeyboardWrapper(
     callback: Lp3KeyboardCallback,
     swipeCallback: Lp3KeyboardSwipeCallback<*>?,
     handleHardwareKeyboardInput: Boolean = true,
-    remapKeyCode: ((KeyEvent) -> Int)? = ::lightOsRemap
+    remapKeyCode: ((KeyEvent) -> Int)? = ::lightOsRemap,
+    additionalBottomHeight: Dp = 0.dp,
+    bottomBar: (@Composable () -> Unit)? = null,
+    onOverlayDismissed: (() -> Unit)? = null,
+    overlay: (@Composable () -> Unit)? = null,
 ) {
     val colors = LocalKeyboardColors.current
+    val additionalHeight = maxOf(additionalBottomHeight, 36.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height((LP3_KEYBOARD_HEIGHT_DP + 36).dp)
+            .height(LP3_KEYBOARD_HEIGHT_DP.dp + additionalHeight)
             .background(colors.background)
-            .padding(top = 10.dp)
             .then(
                 if (handleHardwareKeyboardInput) {
                     Modifier.hardwareKeyboardInput(callback, remapKeyCode)
@@ -79,25 +90,42 @@ fun Lp3KeyboardWrapper(
                 }
             )
     ) {
-        Lp3Keyboard(layout, keyboardOptions, callback, swipeCallback)
+        if (overlay != null) {
+            Box(Modifier.fillMaxWidth().height(LP3_KEYBOARD_HEIGHT_DP.dp)) {
+                overlay()
+            }
+        } else {
+            Spacer(Modifier.height(10.dp))
+            Lp3Keyboard(layout, keyboardOptions, callback, swipeCallback)
+        }
         Row(
             Modifier.weight(1f).fillMaxWidth().background(colors.background),
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.Bottom
         ) {
-            if (layoutOptions.displayCloseButton) {
+            if (layoutOptions.displayCloseButton || overlay != null) {
                 Button(
-                    onClick = { callback.onSpecialKeyReleased(SpecialKey.Close) },
+                    onClick = {
+                        if (onOverlayDismissed != null) {
+                            onOverlayDismissed()
+                        } else {
+                            callback.onSpecialKeyReleased(SpecialKey.Close)
+                        }
+                    },
                     contentPadding = PaddingValues(bottom = 10.dp, top = 4.dp),
                     colors = ButtonDefaults.buttonColors(
                         backgroundColor = Color.Transparent,
                         contentColor = colors.foreground,
-                    )
+                    ),
+                    modifier = Modifier.height(28.dp)
                 ) {
                     Icon(
                         painterResource(R.drawable.down_lp3),
                         "Close"
                     )
                 }
+            } else if (bottomBar != null) {
+                bottomBar()
             }
         }
     }
@@ -116,7 +144,13 @@ fun Lp3KeyboardWrapperPreview() {
                 swipeEnabled = true
             )
             val layoutOptions = LayoutOptions(displayCloseButton = true)
-            Lp3KeyboardWrapper(EnQwerty.UpperCaseLayout, keyboardOptions, layoutOptions, previewCallback, null)
+            Lp3KeyboardWrapper(
+                EnQwerty.UpperCaseLayout,
+                keyboardOptions,
+                layoutOptions,
+                previewCallback,
+                null
+            )
         }
     }
 }
