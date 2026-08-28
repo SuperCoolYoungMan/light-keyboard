@@ -217,6 +217,22 @@ class IMEService : LifecycleInputMethodService(),
         updateCapsMode()
     }
 
+    private fun deleteOneBackspaceUnit() {
+        val ic = currentInputConnection ?: return
+        if (isKoreanLayout() && !hangulComposer.isEmpty) {
+            val text = hangulComposer.backspace()
+            ic.setComposingText(text, 1)
+            if (text.isEmpty()) ic.finishComposingText()
+            return
+        }
+
+        val before = ic.getTextBeforeCursor(1, 0)
+        val charsToDelete =
+            if (!before.isNullOrEmpty() && Character.isLowSurrogate(before[0])) 2 else 1
+        ic.deleteSurroundingText(charsToDelete, 0)
+        updateCapsMode()
+    }
+
     override fun onSpecialKeyReleased(key: SpecialKey) {
         when (key) {
             SpecialKey.Space -> {
@@ -225,21 +241,7 @@ class IMEService : LifecycleInputMethodService(),
                 updateCapsMode()
             }
 
-            SpecialKey.Backspace -> {
-                val ic = currentInputConnection ?: return
-                if (isKoreanLayout() && !hangulComposer.isEmpty) {
-                    val text = hangulComposer.backspace()
-                    ic.setComposingText(text, 1)
-                    if (text.isEmpty()) ic.finishComposingText()
-                    return
-                }
-
-                val before = ic.getTextBeforeCursor(1, 0)
-                val charsToDelete =
-                    if (!before.isNullOrEmpty() && Character.isLowSurrogate(before[0])) 2 else 1
-                ic.deleteSurroundingText(charsToDelete, 0)
-                updateCapsMode()
-            }
+            SpecialKey.Backspace -> deleteOneBackspaceUnit()
 
             SpecialKey.Return -> {
                 finishHangulComposition()
@@ -259,19 +261,6 @@ class IMEService : LifecycleInputMethodService(),
         haptics.perform(KeyboardHapticEvent.LongPress)
     }
 
-    private fun deletePrecedingWord() {
-        finishHangulComposition()
-        val ic = currentInputConnection ?: return
-        // Get text before cursor to find the word boundary (max 100 chars long)
-        val before = ic.getTextBeforeCursor(100, 0) ?: return
-        val trimmed = before.trimEnd()
-        val lastSpace = trimmed.indexOfLast { it.isWhitespace() }
-        // Delete from cursor back to start of word (including trailing spaces)
-        val charsToDelete = before.length - (if (lastSpace >= 0) lastSpace + 1 else 0)
-        ic.deleteSurroundingText(charsToDelete, 0)
-        updateCapsMode()
-    }
-
     override fun onSpecialKeyLongPressed(key: SpecialKey) {
         if (key == SpecialKey.Space) {
             suppressSpaceRepeatUntilNextPress = true
@@ -281,13 +270,7 @@ class IMEService : LifecycleInputMethodService(),
         }
 
         haptics.perform(KeyboardHapticEvent.LongPress)
-        when (key) {
-            SpecialKey.Backspace -> {
-                deletePrecedingWord()
-            }
-
-            else -> {}
-        }
+        if (key == SpecialKey.Backspace) deleteOneBackspaceUnit()
     }
 
     override fun onKeyRepeated(code: Int) {
@@ -306,7 +289,7 @@ class IMEService : LifecycleInputMethodService(),
 
             SpecialKey.Backspace -> {
                 haptics.perform(KeyboardHapticEvent.BackspaceRepeat)
-                deletePrecedingWord()
+                deleteOneBackspaceUnit()
             }
 
             else -> {}
