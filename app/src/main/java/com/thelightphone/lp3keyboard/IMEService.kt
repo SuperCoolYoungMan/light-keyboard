@@ -1,7 +1,6 @@
 package com.thelightphone.lp3keyboard
 
 import android.content.SharedPreferences
-import android.os.Vibrator
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import androidx.lifecycle.Lifecycle
@@ -31,6 +30,7 @@ class IMEService : LifecycleInputMethodService(),
     private var renderedLayout: LayoutRegistryItem? = null
     private var viewModel: Lp3KeyboardViewModel<*>? = null
     private val hangulComposer = HangulComposer()
+    private val haptics by lazy { KeyboardHaptics(this) }
 
     private var layoutPrefs: SharedPreferences? = null
     private val layoutChangeListener =
@@ -60,10 +60,12 @@ class IMEService : LifecycleInputMethodService(),
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 val dummySwipeCallback = object : Lp3KeyboardSwipeCallback<Unit> {}
+                val hapticCallback: () -> Unit =
+                    if (layout == LayoutRegistryItem.KoDubeolsik) ({}) else ::tick
                 return layout.buildRootViewModel(
                     this@IMEService,
                     dummySwipeCallback,
-                    haptic = ::tick
+                    haptic = hapticCallback
                 ) as T
             }
         }
@@ -121,11 +123,9 @@ class IMEService : LifecycleInputMethodService(),
         get() = dispatcher.lifecycle
 
     private val store = ViewModelStore()
-    private val vibrator by lazy { getSystemService(Vibrator::class.java) }
 
     private fun tick() {
-        // 50ms feels good on LP3, other device motors may allow faster buzz
-        vibrator.vibrate(50)
+        haptics.perform(KeyboardHapticEvent.Key)
     }
 
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
@@ -177,6 +177,7 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     override fun onKeyPressed(code: Int) {
+        if (isKoreanLayout()) haptics.perform(KeyboardHapticEvent.Key)
     }
 
     override fun onSubmitWord(word: CharSequence) {
@@ -185,6 +186,17 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     override fun onSpecialKeyPressed(key: SpecialKey) {
+        if (isKoreanLayout()) {
+            val event = when (key) {
+                SpecialKey.Space -> KeyboardHapticEvent.Space
+                SpecialKey.UpCase, SpecialKey.DownCase -> KeyboardHapticEvent.Shift
+                SpecialKey.Backspace -> KeyboardHapticEvent.Backspace
+                SpecialKey.Return, SpecialKey.Submit -> KeyboardHapticEvent.Enter
+                else -> KeyboardHapticEvent.Key
+            }
+            haptics.perform(event)
+        }
+
         when (key) {
             SpecialKey.Space -> {
                 finishHangulComposition()
@@ -242,6 +254,7 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     override fun onKeyLongPressed(code: Int) {
+        if (isKoreanLayout()) haptics.perform(KeyboardHapticEvent.LongPress)
     }
 
     private fun deletePrecedingWord() {
@@ -258,6 +271,8 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     override fun onSpecialKeyLongPressed(key: SpecialKey) {
+        if (isKoreanLayout()) haptics.perform(KeyboardHapticEvent.LongPress)
+
         when (key) {
             SpecialKey.Backspace -> {
                 deletePrecedingWord()
@@ -272,6 +287,14 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     override fun onSpecialKeyRepeated(specialKey: SpecialKey) {
+        if (isKoreanLayout()) {
+            when (specialKey) {
+                SpecialKey.Backspace -> haptics.perform(KeyboardHapticEvent.BackspaceRepeat)
+                SpecialKey.Space -> haptics.perform(KeyboardHapticEvent.Space)
+                else -> {}
+            }
+        }
+
         when (specialKey) {
             SpecialKey.Space -> {
                 finishHangulComposition()
