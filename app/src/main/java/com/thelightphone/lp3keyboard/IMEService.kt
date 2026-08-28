@@ -30,6 +30,7 @@ class IMEService : LifecycleInputMethodService(),
 
     private var renderedLayout: LayoutRegistryItem? = null
     private var viewModel: Lp3KeyboardViewModel<*>? = null
+    private val hangulComposer = HangulComposer()
 
     private var layoutPrefs: SharedPreferences? = null
     private val layoutChangeListener =
@@ -39,8 +40,17 @@ class IMEService : LifecycleInputMethodService(),
             }
         }
 
+    private fun isKoreanLayout() = renderedLayout == LayoutRegistryItem.KoDubeolsik
+
+    private fun finishHangulComposition() {
+        if (hangulComposer.isEmpty) return
+        currentInputConnection?.finishComposingText()
+        hangulComposer.clear()
+    }
+
     private fun refreshLayoutIfNeeded() {
         if (LayoutPreferences.getActiveLayout(this) != renderedLayout) {
+            finishHangulComposition()
             setInputView(onCreateInputView())
         }
     }
@@ -123,16 +133,42 @@ class IMEService : LifecycleInputMethodService(),
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
 
     override fun onWindowHidden() {
+        finishHangulComposition()
         super.onWindowHidden()
         viewModel?.cancelHeldKeys()
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        finishHangulComposition()
         updateCapsMode()
     }
 
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(
+            oldSelStart,
+            oldSelEnd,
+            newSelStart,
+            newSelEnd,
+            candidatesStart,
+            candidatesEnd
+        )
+        if (!hangulComposer.isEmpty &&
+            (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)
+        ) {
+            finishHangulComposition()
+        }
+    }
+
     private fun updateCapsMode() {
+        if (isKoreanLayout()) return
         val ic = currentInputConnection ?: return
         val ei = currentInputEditorInfo ?: return
         // might be set if the TextField is set to capitalize sentence starts, for example
@@ -144,12 +180,14 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     override fun onSubmitWord(word: CharSequence) {
+        finishHangulComposition()
         currentInputConnection?.commitText("$word ", 1)
     }
 
     override fun onSpecialKeyPressed(key: SpecialKey) {
         when (key) {
             SpecialKey.Space -> {
+                finishHangulComposition()
                 currentInputConnection?.commitText(" ", 1)
                 updateCapsMode()
             }
@@ -160,6 +198,13 @@ class IMEService : LifecycleInputMethodService(),
 
     override fun onKeyReleased(code: Int) {
         val text = buildString { appendCodePoint(code) }
+        val char = text.singleOrNull()
+        if (isKoreanLayout() && char != null && HangulComposer.isHangulKey(char)) {
+            currentInputConnection?.setComposingText(hangulComposer.input(char), 1)
+            return
+        }
+
+        finishHangulComposition()
         currentInputConnection?.commitText(text, 1)
         updateCapsMode()
     }
@@ -168,6 +213,13 @@ class IMEService : LifecycleInputMethodService(),
         when (key) {
             SpecialKey.Backspace -> {
                 val ic = currentInputConnection ?: return
+                if (isKoreanLayout() && !hangulComposer.isEmpty) {
+                    val text = hangulComposer.backspace()
+                    ic.setComposingText(text, 1)
+                    if (text.isEmpty()) ic.finishComposingText()
+                    return
+                }
+
                 val before = ic.getTextBeforeCursor(1, 0)
                 val charsToDelete =
                     if (!before.isNullOrEmpty() && Character.isLowSurrogate(before[0])) 2 else 1
@@ -176,10 +228,12 @@ class IMEService : LifecycleInputMethodService(),
             }
 
             SpecialKey.Return -> {
+                finishHangulComposition()
                 currentInputConnection?.commitText("\n", 1)
             }
 
             SpecialKey.Close -> {
+                finishHangulComposition()
                 requestHideSelf(0)
             }
 
@@ -191,6 +245,7 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     private fun deletePrecedingWord() {
+        finishHangulComposition()
         val ic = currentInputConnection ?: return
         // Get text before cursor to find the word boundary (max 100 chars long)
         val before = ic.getTextBeforeCursor(100, 0) ?: return
@@ -219,6 +274,7 @@ class IMEService : LifecycleInputMethodService(),
     override fun onSpecialKeyRepeated(specialKey: SpecialKey) {
         when (specialKey) {
             SpecialKey.Space -> {
+                finishHangulComposition()
                 currentInputConnection?.commitText(" ", 1)
                 updateCapsMode()
             }
