@@ -349,7 +349,7 @@ fun RowScope.IconKey(
             modifier = Modifier.premiumKeyMotion(
                 pressed = pressed,
                 enabled = enableKeyAnimation,
-                style = KeyMotionStyle.Icon,
+                style = motionStyleFor(key),
             )
         )
     }
@@ -466,7 +466,7 @@ fun RowScope.Key(
             modifier = Modifier.premiumKeyMotion(
                 pressed = pressed,
                 enabled = enableKeyAnimation,
-                style = KeyMotionStyle.Character,
+                style = override?.let { motionStyleFor(it) } ?: KeyMotionStyle.Character,
             )
         )
     }
@@ -507,7 +507,7 @@ fun RowScope.MultiLabelKey(
             modifier = Modifier.premiumKeyMotion(
                 pressed = pressed,
                 enabled = enableKeyAnimation,
-                style = KeyMotionStyle.MultiLabel,
+                style = motionStyleFor(key),
             )
         )
     }

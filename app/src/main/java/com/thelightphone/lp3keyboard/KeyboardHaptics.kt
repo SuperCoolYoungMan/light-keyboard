@@ -13,7 +13,10 @@ enum class KeyboardHapticEvent {
     Backspace,
     BackspaceRepeat,
     Enter,
+    ModeSwitch,
     LanguageSwitch,
+    Dismiss,
+    Voice,
     LongPress
 }
 
@@ -97,9 +100,21 @@ class KeyboardHaptics(private val context: Context) {
                 VibrationEffect.Composition.PRIMITIVE_THUD,
                 VibrationEffect.Composition.PRIMITIVE_CLICK,
             )
+            KeyboardHapticEvent.ModeSwitch -> vibrator.areAllPrimitivesSupported(
+                VibrationEffect.Composition.PRIMITIVE_TICK,
+                VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+            )
             KeyboardHapticEvent.LanguageSwitch -> vibrator.areAllPrimitivesSupported(
                 VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
                 VibrationEffect.Composition.PRIMITIVE_CLICK,
+            )
+            KeyboardHapticEvent.Dismiss -> vibrator.areAllPrimitivesSupported(
+                VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
+                VibrationEffect.Composition.PRIMITIVE_QUICK_FALL,
+            )
+            KeyboardHapticEvent.Voice -> vibrator.areAllPrimitivesSupported(
+                VibrationEffect.Composition.PRIMITIVE_CLICK,
+                VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
             )
             KeyboardHapticEvent.LongPress -> vibrator.areAllPrimitivesSupported(
                 VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
@@ -166,6 +181,18 @@ class KeyboardHaptics(private val context: Context) {
                         6
                     )
 
+            KeyboardHapticEvent.ModeSwitch ->
+                builder
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_TICK,
+                        scaled(0.23f)
+                    )
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+                        scaled(0.10f),
+                        2
+                    )
+
             KeyboardHapticEvent.LanguageSwitch ->
                 builder
                     .addPrimitive(
@@ -176,6 +203,30 @@ class KeyboardHaptics(private val context: Context) {
                         VibrationEffect.Composition.PRIMITIVE_CLICK,
                         scaled(0.34f),
                         24
+                    )
+
+            KeyboardHapticEvent.Dismiss ->
+                builder
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
+                        scaled(0.18f)
+                    )
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_QUICK_FALL,
+                        scaled(0.10f),
+                        0
+                    )
+
+            KeyboardHapticEvent.Voice ->
+                builder
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_CLICK,
+                        scaled(0.28f)
+                    )
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+                        scaled(0.12f),
+                        2
                     )
 
             KeyboardHapticEvent.LongPress ->
@@ -201,7 +252,10 @@ class KeyboardHaptics(private val context: Context) {
         KeyboardHapticEvent.Backspace -> VibrationEffect.EFFECT_TICK
         KeyboardHapticEvent.BackspaceRepeat -> VibrationEffect.EFFECT_TICK
         KeyboardHapticEvent.Enter -> VibrationEffect.EFFECT_HEAVY_CLICK
+        KeyboardHapticEvent.ModeSwitch -> VibrationEffect.EFFECT_CLICK
         KeyboardHapticEvent.LanguageSwitch -> VibrationEffect.EFFECT_DOUBLE_CLICK
+        KeyboardHapticEvent.Dismiss -> VibrationEffect.EFFECT_TICK
+        KeyboardHapticEvent.Voice -> VibrationEffect.EFFECT_CLICK
         KeyboardHapticEvent.LongPress -> VibrationEffect.EFFECT_CLICK
     }
 
@@ -213,7 +267,10 @@ class KeyboardHaptics(private val context: Context) {
             KeyboardHapticEvent.Backspace -> 70
             KeyboardHapticEvent.BackspaceRepeat -> 42
             KeyboardHapticEvent.Enter -> 116
+            KeyboardHapticEvent.ModeSwitch -> 76
             KeyboardHapticEvent.LanguageSwitch -> 88
+            KeyboardHapticEvent.Dismiss -> 58
+            KeyboardHapticEvent.Voice -> 94
             KeyboardHapticEvent.LongPress -> 96
         }
         val amplitude = (baseAmplitude * strengthScale).toInt().coerceIn(1, 255)
@@ -239,6 +296,9 @@ class KeyboardHaptics(private val context: Context) {
                     KeyboardHapticEvent.Backspace -> 5
                     KeyboardHapticEvent.BackspaceRepeat -> 3
                     KeyboardHapticEvent.Enter -> 9
+                    KeyboardHapticEvent.ModeSwitch -> 5
+                    KeyboardHapticEvent.Dismiss -> 4
+                    KeyboardHapticEvent.Voice -> 7
                     KeyboardHapticEvent.LongPress -> 7
                     KeyboardHapticEvent.LanguageSwitch -> 6
                 },
