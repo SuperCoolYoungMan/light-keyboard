@@ -56,16 +56,16 @@ class KeyMotionTest {
     }
 
     @Test
-    fun `adaptive factor stays full at relaxed cadence`() {
-        assertEquals(1f, adaptiveMotionFactor(400f), 0.0001f)
-        assertEquals(1f, adaptiveMotionFactor(260f), 0.0001f)
+    fun `balanced factor stays full at relaxed cadence`() {
+        assertEquals(1f, adaptiveMotionFactor(400f, AdaptiveMotionMode.Balanced), 0.0001f)
+        assertEquals(1f, adaptiveMotionFactor(260f, AdaptiveMotionMode.Balanced), 0.0001f)
     }
 
     @Test
-    fun `adaptive factor shrinks motion at fast cadence but never disappears`() {
-        val medium = adaptiveMotionFactor(200f)
-        val fast = adaptiveMotionFactor(150f)
-        val veryFast = adaptiveMotionFactor(100f)
+    fun `balanced factor shrinks motion at fast cadence but never disappears`() {
+        val medium = adaptiveMotionFactor(200f, AdaptiveMotionMode.Balanced)
+        val fast = adaptiveMotionFactor(150f, AdaptiveMotionMode.Balanced)
+        val veryFast = adaptiveMotionFactor(100f, AdaptiveMotionMode.Balanced)
 
         assertTrue(medium < 1f)
         assertTrue(fast < medium)
@@ -74,13 +74,29 @@ class KeyMotionTest {
     }
 
     @Test
+    fun `off profile never reduces motion`() {
+        listOf(400f, 250f, 150f, 80f).forEach { interval ->
+            assertEquals(1f, adaptiveMotionFactor(interval, AdaptiveMotionMode.Off), 0.0001f)
+        }
+    }
+
+    @Test
+    fun `minimal profile calms motion more than balanced at fast cadence`() {
+        val balanced = adaptiveMotionFactor(150f, AdaptiveMotionMode.Balanced)
+        val minimal = adaptiveMotionFactor(150f, AdaptiveMotionMode.Minimal)
+
+        assertTrue(minimal < balanced)
+        assertTrue(minimal >= 0.10f)
+    }
+
+    @Test
     fun `cadence tracker ramps down instead of snapping after one fast interval`() {
         val tracker = TypingCadenceTracker()
 
-        val first = tracker.recordPress(1_000L)
-        val second = tracker.recordPress(1_125L)
-        val third = tracker.recordPress(1_250L)
-        val fourth = tracker.recordPress(1_375L)
+        val first = tracker.recordPress(1_000L).factor
+        val second = tracker.recordPress(1_125L).factor
+        val third = tracker.recordPress(1_250L).factor
+        val fourth = tracker.recordPress(1_375L).factor
 
         assertEquals(1f, first, 0.0001f)
         assertTrue(second < first)
@@ -88,6 +104,17 @@ class KeyMotionTest {
         assertTrue(third < second)
         assertTrue(fourth < third)
         assertTrue(fourth >= 0.30f)
+    }
+
+    @Test
+    fun `cadence tracker exposes smoothed typing speed`() {
+        val tracker = TypingCadenceTracker()
+        tracker.recordPress(1_000L)
+        val sample = tracker.recordPress(1_200L)
+
+        assertTrue(sample.smoothedIntervalMs != null)
+        assertTrue(sample.keysPerSecond != null)
+        assertTrue(sample.keysPerSecond!! > 0f)
     }
 
     @Test
@@ -99,7 +126,7 @@ class KeyMotionTest {
         tracker.recordPress(1_250L)
         val afterPause = tracker.recordPress(2_500L)
 
-        assertEquals(1f, afterPause, 0.0001f)
+        assertEquals(1f, afterPause.factor, 0.0001f)
     }
 
     @Test

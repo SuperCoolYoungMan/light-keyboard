@@ -11,19 +11,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-private const val ADAPTIVE_MOTION_FULL_INTERVAL_MS = 260f
-private const val ADAPTIVE_MOTION_FAST_INTERVAL_MS = 125f
-private const val ADAPTIVE_MOTION_MIN_FACTOR = 0.32f
 private const val ADAPTIVE_MOTION_RESET_MS = 900L
 private const val ADAPTIVE_MOTION_SMOOTHING_ALPHA = 0.45f
 
-internal data class MotionCadenceSample(
+data class MotionCadenceSample(
     val timestampMs: Long,
     val smoothedIntervalMs: Float?,
     val factor: Float,
-)
+) {
+    val keysPerSecond: Float?
+        get() = smoothedIntervalMs?.takeIf { it > 0f }?.let { 1000f / it }
+}
 
 /**
  * Tracks keyboard-wide press cadence without owning Compose state.
@@ -32,11 +33,14 @@ internal data class MotionCadenceSample(
  * composition, while the cadence history is only mutated after that composition
  * is successfully applied. This avoids counting speculative/restarted composition.
  */
-internal class TypingCadenceTracker {
+class TypingCadenceTracker {
     private var lastPressMs: Long? = null
     private var smoothedIntervalMs: Float? = null
 
-    fun previewPress(nowMs: Long): MotionCadenceSample {
+    fun previewPress(
+        nowMs: Long,
+        mode: AdaptiveMotionMode = AdaptiveMotionMode.Balanced,
+    ): MotionCadenceSample {
         val previousPress = lastPressMs
         if (
             previousPress == null ||
@@ -45,13 +49,13 @@ internal class TypingCadenceTracker {
         ) {
             return MotionCadenceSample(
                 timestampMs = nowMs,
-                smoothedIntervalMs = ADAPTIVE_MOTION_FULL_INTERVAL_MS,
+                smoothedIntervalMs = mode.fullIntervalMs,
                 factor = 1f,
             )
         }
 
         val intervalMs = (nowMs - previousPress).toFloat()
-        val previousSmoothed = smoothedIntervalMs ?: ADAPTIVE_MOTION_FULL_INTERVAL_MS
+        val previousSmoothed = smoothedIntervalMs ?: mode.fullIntervalMs
         val smoothed =
             previousSmoothed * (1f - ADAPTIVE_MOTION_SMOOTHING_ALPHA) +
                 intervalMs * ADAPTIVE_MOTION_SMOOTHING_ALPHA
@@ -59,7 +63,7 @@ internal class TypingCadenceTracker {
         return MotionCadenceSample(
             timestampMs = nowMs,
             smoothedIntervalMs = smoothed,
-            factor = adaptiveMotionFactor(smoothed),
+            factor = adaptiveMotionFactor(smoothed, mode),
         )
     }
 
@@ -68,10 +72,13 @@ internal class TypingCadenceTracker {
         smoothedIntervalMs = sample.smoothedIntervalMs
     }
 
-    fun recordPress(nowMs: Long): Float {
-        val sample = previewPress(nowMs)
+    fun recordPress(
+        nowMs: Long,
+        mode: AdaptiveMotionMode = AdaptiveMotionMode.Balanced,
+    ): MotionCadenceSample {
+        val sample = previewPress(nowMs, mode)
         commit(sample)
-        return sample.factor
+        return sample
     }
 
     fun reset() {
@@ -80,14 +87,18 @@ internal class TypingCadenceTracker {
     }
 }
 
-internal fun adaptiveMotionFactor(intervalMs: Float): Float {
-    if (intervalMs >= ADAPTIVE_MOTION_FULL_INTERVAL_MS) return 1f
-    if (intervalMs <= ADAPTIVE_MOTION_FAST_INTERVAL_MS) return ADAPTIVE_MOTION_MIN_FACTOR
+fun adaptiveMotionFactor(
+    intervalMs: Float,
+    mode: AdaptiveMotionMode = AdaptiveMotionMode.Balanced,
+): Float {
+    if (mode == AdaptiveMotionMode.Off) return 1f
+    if (intervalMs >= mode.fullIntervalMs) return 1f
+    if (intervalMs <= mode.fastIntervalMs) return mode.minFactor
 
     val progress =
-        (intervalMs - ADAPTIVE_MOTION_FAST_INTERVAL_MS) /
-            (ADAPTIVE_MOTION_FULL_INTERVAL_MS - ADAPTIVE_MOTION_FAST_INTERVAL_MS)
-    return ADAPTIVE_MOTION_MIN_FACTOR + progress * (1f - ADAPTIVE_MOTION_MIN_FACTOR)
+        (intervalMs - mode.fastIntervalMs) /
+            (mode.fullIntervalMs - mode.fastIntervalMs)
+    return mode.minFactor + progress * (1f - mode.minFactor)
 }
 
 private val adaptiveMotionCadence = TypingCadenceTracker()
@@ -171,8 +182,8 @@ internal fun motionStyleFor(key: SpecialKey): KeyMotionStyle = when (key) {
  *
  * Character keys lift very slightly, while action keys such as Enter and
  * Backspace compress downward. At fast typing cadence the visual travel is
- * automatically reduced while haptics remain unchanged, preventing the keyboard
- * from looking busy during rapid input.
+ * automatically reduced according to the selected adaptive profile while
+ * haptics remain unchanged.
  */
 @Composable
 fun Modifier.premiumKeyMotion(
@@ -182,15 +193,17 @@ fun Modifier.premiumKeyMotion(
 ): Modifier {
     if (!enabled) return this
 
-    val cadenceSample = remember(pressed) {
+    val context = LocalContext.current
+    val mode = AdaptiveMotionPreferences.getMode(context)
+    val cadenceSample = remember(pressed, mode) {
         if (pressed) {
-            adaptiveMotionCadence.previewPress(SystemClock.uptimeMillis())
+            adaptiveMotionCadence.previewPress(SystemClock.uptimeMillis(), mode)
         } else {
             MotionCadenceSample(0L, null, 1f)
         }
     }
 
-    LaunchedEffect(pressed) {
+    LaunchedEffect(pressed, mode) {
         if (pressed) adaptiveMotionCadence.commit(cadenceSample)
     }
 
