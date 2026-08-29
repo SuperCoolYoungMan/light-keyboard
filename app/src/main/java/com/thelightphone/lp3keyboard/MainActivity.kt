@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.Divider
 import androidx.compose.material.RadioButton
@@ -54,6 +56,7 @@ fun KeyboardSettings() {
         modifier = Modifier
             .systemBarsPadding()
             .background(Color.White)
+            .verticalScroll(rememberScrollState())
             .padding(18.dp)
             .fillMaxWidth(),
     ) {
@@ -125,6 +128,7 @@ fun KeyboardSettings() {
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         )
+        Spacer(Modifier.height(24.dp))
     }
 }
 
