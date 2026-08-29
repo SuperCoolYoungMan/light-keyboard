@@ -199,7 +199,12 @@ class IMEService : LifecycleInputMethodService(),
             SpecialKey.UpCase, SpecialKey.DownCase -> KeyboardHapticEvent.Shift
             SpecialKey.Backspace -> KeyboardHapticEvent.Backspace
             SpecialKey.Return, SpecialKey.Submit -> KeyboardHapticEvent.Enter
-            else -> KeyboardHapticEvent.Key
+            SpecialKey.Letters,
+            SpecialKey.Numbers,
+            SpecialKey.Symbols,
+            SpecialKey.Emojis -> KeyboardHapticEvent.ModeSwitch
+            SpecialKey.Close -> KeyboardHapticEvent.Dismiss
+            SpecialKey.Voice -> KeyboardHapticEvent.Voice
         }
         haptics.perform(event)
     }
