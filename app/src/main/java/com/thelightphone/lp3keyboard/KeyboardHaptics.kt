@@ -34,14 +34,13 @@ class KeyboardHaptics(private val context: Context) {
         context.getSystemService(VibratorManager::class.java).defaultVibrator
 
     fun capabilities(): HapticCapabilities {
-        val c = VibrationEffect.Composition
         val primitives = intArrayOf(
-            c.PRIMITIVE_LOW_TICK,
-            c.PRIMITIVE_TICK,
-            c.PRIMITIVE_CLICK,
-            c.PRIMITIVE_THUD,
-            c.PRIMITIVE_QUICK_RISE,
-            c.PRIMITIVE_QUICK_FALL,
+            VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
+            VibrationEffect.Composition.PRIMITIVE_TICK,
+            VibrationEffect.Composition.PRIMITIVE_CLICK,
+            VibrationEffect.Composition.PRIMITIVE_THUD,
+            VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+            VibrationEffect.Composition.PRIMITIVE_QUICK_FALL,
         )
         val supported = vibrator.arePrimitivesSupported(*primitives)
         return HapticCapabilities(
@@ -77,57 +76,121 @@ class KeyboardHaptics(private val context: Context) {
     }
 
     private fun compositionFor(event: KeyboardHapticEvent, strengthScale: Float): VibrationEffect? {
-        val c = VibrationEffect.Composition
         val primitives = when (event) {
-            KeyboardHapticEvent.Key -> intArrayOf(c.PRIMITIVE_LOW_TICK)
-            KeyboardHapticEvent.Space -> intArrayOf(c.PRIMITIVE_CLICK, c.PRIMITIVE_QUICK_FALL)
-            KeyboardHapticEvent.Shift -> intArrayOf(c.PRIMITIVE_TICK, c.PRIMITIVE_QUICK_RISE)
-            KeyboardHapticEvent.Backspace -> intArrayOf(c.PRIMITIVE_LOW_TICK)
-            KeyboardHapticEvent.BackspaceRepeat -> intArrayOf(c.PRIMITIVE_LOW_TICK)
-            KeyboardHapticEvent.Enter -> intArrayOf(c.PRIMITIVE_THUD, c.PRIMITIVE_CLICK)
-            KeyboardHapticEvent.LanguageSwitch -> intArrayOf(c.PRIMITIVE_LOW_TICK, c.PRIMITIVE_CLICK)
-            KeyboardHapticEvent.LongPress -> intArrayOf(c.PRIMITIVE_QUICK_RISE, c.PRIMITIVE_CLICK)
+            KeyboardHapticEvent.Key -> intArrayOf(
+                VibrationEffect.Composition.PRIMITIVE_LOW_TICK
+            )
+            KeyboardHapticEvent.Space -> intArrayOf(
+                VibrationEffect.Composition.PRIMITIVE_CLICK,
+                VibrationEffect.Composition.PRIMITIVE_QUICK_FALL,
+            )
+            KeyboardHapticEvent.Shift -> intArrayOf(
+                VibrationEffect.Composition.PRIMITIVE_TICK,
+                VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+            )
+            KeyboardHapticEvent.Backspace -> intArrayOf(
+                VibrationEffect.Composition.PRIMITIVE_LOW_TICK
+            )
+            KeyboardHapticEvent.BackspaceRepeat -> intArrayOf(
+                VibrationEffect.Composition.PRIMITIVE_LOW_TICK
+            )
+            KeyboardHapticEvent.Enter -> intArrayOf(
+                VibrationEffect.Composition.PRIMITIVE_THUD,
+                VibrationEffect.Composition.PRIMITIVE_CLICK,
+            )
+            KeyboardHapticEvent.LanguageSwitch -> intArrayOf(
+                VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
+                VibrationEffect.Composition.PRIMITIVE_CLICK,
+            )
+            KeyboardHapticEvent.LongPress -> intArrayOf(
+                VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+                VibrationEffect.Composition.PRIMITIVE_CLICK,
+            )
         }
 
         if (!vibrator.areAllPrimitivesSupported(*primitives)) return null
 
-        fun s(value: Float): Float = (value * strengthScale).coerceIn(0.05f, 1f)
+        fun scaled(value: Float): Float = (value * strengthScale).coerceIn(0.05f, 1f)
         val builder = VibrationEffect.startComposition()
 
         when (event) {
             KeyboardHapticEvent.Key ->
-                builder.addPrimitive(c.PRIMITIVE_LOW_TICK, s(0.24f))
+                builder.addPrimitive(
+                    VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
+                    scaled(0.24f)
+                )
 
             KeyboardHapticEvent.Space ->
                 builder
-                    .addPrimitive(c.PRIMITIVE_CLICK, s(0.30f))
-                    .addPrimitive(c.PRIMITIVE_QUICK_FALL, s(0.12f), 0)
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_CLICK,
+                        scaled(0.30f)
+                    )
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_QUICK_FALL,
+                        scaled(0.12f),
+                        0
+                    )
 
             KeyboardHapticEvent.Shift ->
                 builder
-                    .addPrimitive(c.PRIMITIVE_TICK, s(0.28f))
-                    .addPrimitive(c.PRIMITIVE_QUICK_RISE, s(0.14f), 0)
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_TICK,
+                        scaled(0.28f)
+                    )
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+                        scaled(0.14f),
+                        0
+                    )
 
             KeyboardHapticEvent.Backspace ->
-                builder.addPrimitive(c.PRIMITIVE_LOW_TICK, s(0.27f))
+                builder.addPrimitive(
+                    VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
+                    scaled(0.27f)
+                )
 
             KeyboardHapticEvent.BackspaceRepeat ->
-                builder.addPrimitive(c.PRIMITIVE_LOW_TICK, s(0.14f))
+                builder.addPrimitive(
+                    VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
+                    scaled(0.14f)
+                )
 
             KeyboardHapticEvent.Enter ->
                 builder
-                    .addPrimitive(c.PRIMITIVE_THUD, s(0.24f))
-                    .addPrimitive(c.PRIMITIVE_CLICK, s(0.22f), 6)
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_THUD,
+                        scaled(0.24f)
+                    )
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_CLICK,
+                        scaled(0.22f),
+                        6
+                    )
 
             KeyboardHapticEvent.LanguageSwitch ->
                 builder
-                    .addPrimitive(c.PRIMITIVE_LOW_TICK, s(0.25f))
-                    .addPrimitive(c.PRIMITIVE_CLICK, s(0.34f), 24)
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
+                        scaled(0.25f)
+                    )
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_CLICK,
+                        scaled(0.34f),
+                        24
+                    )
 
             KeyboardHapticEvent.LongPress ->
                 builder
-                    .addPrimitive(c.PRIMITIVE_QUICK_RISE, s(0.14f))
-                    .addPrimitive(c.PRIMITIVE_CLICK, s(0.22f), 4)
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+                        scaled(0.14f)
+                    )
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_CLICK,
+                        scaled(0.22f),
+                        4
+                    )
         }
 
         return builder.compose()
@@ -159,7 +222,11 @@ class KeyboardHaptics(private val context: Context) {
 
         return when (event) {
             KeyboardHapticEvent.LanguageSwitch -> {
-                val resolved = if (vibrator.hasAmplitudeControl()) amplitude else VibrationEffect.DEFAULT_AMPLITUDE
+                val resolved = if (vibrator.hasAmplitudeControl()) {
+                    amplitude
+                } else {
+                    VibrationEffect.DEFAULT_AMPLITUDE
+                }
                 VibrationEffect.createWaveform(
                     longArrayOf(0, 5, 24, 7),
                     intArrayOf(0, resolved.coerceAtMost(180), 0, resolved),
