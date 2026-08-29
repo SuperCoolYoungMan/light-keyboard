@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
 fun KeyboardSettings() {
     val ctx = LocalContext.current
     val haptics = remember(ctx) { KeyboardHaptics(ctx) }
+    val capabilities = remember(haptics) { haptics.capabilities() }
     val (text, setValue) = remember { mutableStateOf(TextFieldValue("안녕하세요 Hello")) }
 
     Column(
@@ -103,6 +104,23 @@ fun KeyboardSettings() {
         })
 
         Spacer(Modifier.height(12.dp))
+        Text("Hardware profile")
+        Text(
+            if (capabilities.fullCrispProfile) {
+                "Full primitive composition supported"
+            } else {
+                "Partial primitive support · automatic fallback enabled"
+            }
+        )
+        Text(
+            "LowTick ${mark(capabilities.lowTick)}  Tick ${mark(capabilities.tick)}  " +
+                "Click ${mark(capabilities.click)}  Thud ${mark(capabilities.thud)}"
+        )
+        Text(
+            "Rise ${mark(capabilities.quickRise)}  Fall ${mark(capabilities.quickFall)}"
+        )
+
+        Spacer(Modifier.height(12.dp))
         Text("Preview")
         Spacer(Modifier.height(6.dp))
         HapticPreviewButton("Character · soft tick") {
@@ -131,6 +149,8 @@ fun KeyboardSettings() {
         Spacer(Modifier.height(24.dp))
     }
 }
+
+private fun mark(value: Boolean): String = if (value) "✓" else "–"
 
 @Composable
 private fun SectionTitle(text: String) {
