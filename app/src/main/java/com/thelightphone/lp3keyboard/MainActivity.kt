@@ -32,6 +32,7 @@ import androidx.compose.material.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -145,6 +146,14 @@ fun KeyboardSettings() {
         Spacer(Modifier.height(18.dp))
         Divider()
         Spacer(Modifier.height(14.dp))
+        SectionTitle("Device haptic calibration")
+        Text("Compare A/B on the actual phone. Five choices narrow the preferred strength for each action.")
+        Spacer(Modifier.height(8.dp))
+        HapticCalibrationLab(haptics)
+
+        Spacer(Modifier.height(18.dp))
+        Divider()
+        Spacer(Modifier.height(14.dp))
         SectionTitle("Adaptive motion")
         Text("Only visual travel changes with typing speed. Haptic strength stays untouched.")
         Spacer(Modifier.height(8.dp))
@@ -162,7 +171,7 @@ fun KeyboardSettings() {
         Divider()
         Spacer(Modifier.height(14.dp))
         SectionTitle("Haptic / Motion Lab")
-        Text("Press the samples or type below. The meter shows the last smoothed cadence.")
+        Text("Press the samples or type below. Saved device calibration is applied automatically.")
         Spacer(Modifier.height(8.dp))
         MotionMeter(labSample, motionMode)
         Spacer(Modifier.height(10.dp))
@@ -230,9 +239,143 @@ fun KeyboardSettings() {
 
 private fun mark(value: Boolean): String = if (value) "✓" else "–"
 
+private fun scaleLabel(scale: Float): String = "${(scale * 100f).roundToInt()}%"
+
 @Composable
 private fun SectionTitle(text: String) {
     Text(text = text, fontWeight = FontWeight.Bold)
+}
+
+@Composable
+private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
+    val ctx = LocalContext.current
+    var selectedTarget by remember { mutableStateOf(HapticCalibrationTarget.Character) }
+    var generation by remember { mutableIntStateOf(0) }
+    val session = remember(selectedTarget, generation) { HapticCalibrationSession() }
+    var pair by remember(selectedTarget, generation) { mutableStateOf(session.currentPair()) }
+    var status by remember(selectedTarget, generation) { mutableStateOf<String?>(null) }
+    var profileRevision by remember { mutableIntStateOf(0) }
+
+    fun resetSession() {
+        generation += 1
+    }
+
+    fun preferA() {
+        val chosen = session.chooseA()
+        if (session.isComplete) {
+            HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen)
+            profileRevision += 1
+            status = "Saved ${selectedTarget.label} at ${scaleLabel(chosen)}"
+        } else {
+            pair = session.currentPair()
+            status = null
+        }
+    }
+
+    fun preferB() {
+        val chosen = session.chooseB()
+        if (session.isComplete) {
+            HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen)
+            profileRevision += 1
+            status = "Saved ${selectedTarget.label} at ${scaleLabel(chosen)}"
+        } else {
+            pair = session.currentPair()
+            status = null
+        }
+    }
+
+    Text("Target")
+    HapticCalibrationTarget.entries.forEach { target ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = target == selectedTarget,
+                    onClick = {
+                        selectedTarget = target
+                        status = null
+                    }
+                )
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(
+                selected = target == selectedTarget,
+                onClick = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("${target.label} · saved ${scaleLabel(HapticCalibrationPreferences.getScale(ctx, target))}")
+        }
+    }
+
+    Spacer(Modifier.height(8.dp))
+    Text(
+        if (session.isComplete) {
+            status ?: "Calibration complete"
+        } else {
+            "Round ${pair.round}/${pair.totalRounds} · A ${scaleLabel(pair.aScale)} · B ${scaleLabel(pair.bScale)}"
+        },
+        fontWeight = FontWeight.Bold,
+    )
+    Text("Use Crisp while calibrating so A/B only measures the device-specific adjustment.")
+
+    Spacer(Modifier.height(8.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !session.isComplete,
+        onClick = { haptics.previewCalibration(selectedTarget, pair.aScale) },
+    ) {
+        Text("Play A · ${scaleLabel(pair.aScale)}")
+    }
+    Spacer(Modifier.height(6.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !session.isComplete,
+        onClick = { haptics.previewCalibration(selectedTarget, pair.bScale) },
+    ) {
+        Text("Play B · ${scaleLabel(pair.bScale)}")
+    }
+    Spacer(Modifier.height(6.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !session.isComplete,
+        onClick = ::preferA,
+    ) {
+        Text("Prefer A")
+    }
+    Spacer(Modifier.height(6.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !session.isComplete,
+        onClick = ::preferB,
+    ) {
+        Text("Prefer B")
+    }
+
+    Spacer(Modifier.height(8.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { resetSession() },
+    ) {
+        Text("Restart this target")
+    }
+    Spacer(Modifier.height(6.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = {
+            HapticCalibrationPreferences.reset(ctx)
+            profileRevision += 1
+            status = "Device haptic profile reset to 100%"
+            resetSession()
+        },
+    ) {
+        Text("Reset all device calibration")
+    }
+
+    // profileRevision intentionally participates in composition so saved percentages
+    // refresh immediately after writes without coupling preferences to Compose state.
+    if (profileRevision < 0) Text("")
 }
 
 @Composable
