@@ -12,23 +12,84 @@ import androidx.compose.ui.unit.dp
 
 enum class KeyMotionStyle(
     val pressedScale: Float,
-    val liftDp: Float,
+    /** Negative lifts the glyph; positive presses it down. */
+    val translationYDp: Float,
+    val attackMs: Int,
+    val releaseMs: Int,
 ) {
-    Character(pressedScale = 1.055f, liftDp = 2.0f),
-    Icon(pressedScale = 1.060f, liftDp = 2.2f),
-    Space(pressedScale = 1.018f, liftDp = 1.0f),
-    MultiLabel(pressedScale = 1.045f, liftDp = 1.6f),
+    Character(
+        pressedScale = 1.055f,
+        translationYDp = -2.0f,
+        attackMs = 18,
+        releaseMs = 76,
+    ),
+    GenericIcon(
+        pressedScale = 1.035f,
+        translationYDp = -1.2f,
+        attackMs = 18,
+        releaseMs = 72,
+    ),
+    Space(
+        pressedScale = 0.992f,
+        translationYDp = 0.8f,
+        attackMs = 16,
+        releaseMs = 70,
+    ),
+    Backspace(
+        pressedScale = 0.968f,
+        translationYDp = 1.4f,
+        attackMs = 14,
+        releaseMs = 62,
+    ),
+    Enter(
+        pressedScale = 0.965f,
+        translationYDp = 2.0f,
+        attackMs = 14,
+        releaseMs = 70,
+    ),
+    Shift(
+        pressedScale = 1.028f,
+        translationYDp = -1.0f,
+        attackMs = 16,
+        releaseMs = 68,
+    ),
+    ModeSwitch(
+        pressedScale = 1.020f,
+        translationYDp = -0.7f,
+        attackMs = 16,
+        releaseMs = 66,
+    ),
+    Dismiss(
+        pressedScale = 0.985f,
+        translationYDp = 0.8f,
+        attackMs = 16,
+        releaseMs = 64,
+    ),
+    Voice(
+        pressedScale = 1.024f,
+        translationYDp = -0.8f,
+        attackMs = 16,
+        releaseMs = 68,
+    ),
 }
 
-internal const val KEY_MOTION_ATTACK_MS = 18
-internal const val KEY_MOTION_RELEASE_MS = 76
+internal fun motionStyleFor(key: SpecialKey): KeyMotionStyle = when (key) {
+    SpecialKey.Backspace -> KeyMotionStyle.Backspace
+    SpecialKey.Return, SpecialKey.Submit -> KeyMotionStyle.Enter
+    SpecialKey.UpCase, SpecialKey.DownCase -> KeyMotionStyle.Shift
+    SpecialKey.Letters, SpecialKey.Numbers, SpecialKey.Symbols, SpecialKey.Emojis ->
+        KeyMotionStyle.ModeSwitch
+    SpecialKey.Space -> KeyMotionStyle.Space
+    SpecialKey.Close -> KeyMotionStyle.Dismiss
+    SpecialKey.Voice -> KeyMotionStyle.Voice
+}
 
 /**
  * Short, non-bouncy key motion intended to complement touch-down haptics.
  *
- * Haptics are fired synchronously from the press callback. Visual motion then
- * lands on the next rendered frame: a tiny lift/scale on press and a slower,
- * controlled return on release. This intentionally avoids spring overshoot.
+ * Character keys lift very slightly, while action keys such as Enter and
+ * Backspace compress downward. The visual direction reinforces the haptic
+ * meaning without adding spring overshoot or repeated bounce while a key is held.
  */
 @Composable
 fun Modifier.premiumKeyMotion(
@@ -38,7 +99,7 @@ fun Modifier.premiumKeyMotion(
 ): Modifier {
     if (!enabled) return this
 
-    val duration = if (pressed) KEY_MOTION_ATTACK_MS else KEY_MOTION_RELEASE_MS
+    val duration = if (pressed) style.attackMs else style.releaseMs
     val easing = if (pressed) FastOutLinearInEasing else LinearOutSlowInEasing
 
     val scale by animateFloatAsState(
@@ -46,15 +107,15 @@ fun Modifier.premiumKeyMotion(
         animationSpec = tween(durationMillis = duration, easing = easing),
         label = "keyScale",
     )
-    val liftDp by animateFloatAsState(
-        targetValue = if (pressed) -style.liftDp else 0f,
+    val translationYDp by animateFloatAsState(
+        targetValue = if (pressed) style.translationYDp else 0f,
         animationSpec = tween(durationMillis = duration, easing = easing),
-        label = "keyLift",
+        label = "keyTranslationY",
     )
 
     return graphicsLayer {
         scaleX = scale
         scaleY = scale
-        translationY = liftDp.dp.toPx()
+        translationY = translationYDp.dp.toPx()
     }
 }
