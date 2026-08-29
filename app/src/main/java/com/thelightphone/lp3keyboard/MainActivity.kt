@@ -139,15 +139,13 @@ fun KeyboardSettings() {
             "LowTick ${mark(capabilities.lowTick)}  Tick ${mark(capabilities.tick)}  " +
                 "Click ${mark(capabilities.click)}  Thud ${mark(capabilities.thud)}"
         )
-        Text(
-            "Rise ${mark(capabilities.quickRise)}  Fall ${mark(capabilities.quickFall)}"
-        )
+        Text("Rise ${mark(capabilities.quickRise)}  Fall ${mark(capabilities.quickFall)}")
 
         Spacer(Modifier.height(18.dp))
         Divider()
         Spacer(Modifier.height(14.dp))
         SectionTitle("Device haptic calibration")
-        Text("Compare A/B on the actual phone. Five choices narrow the preferred strength for each action.")
+        Text("Blind A/B comparison on the actual phone. Five choices narrow the preferred strength for each action.")
         Spacer(Modifier.height(8.dp))
         HapticCalibrationLab(haptics)
 
@@ -314,10 +312,11 @@ private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
         if (session.isComplete) {
             status ?: "Calibration complete"
         } else {
-            "Round ${pair.round}/${pair.totalRounds} · A ${scaleLabel(pair.aScale)} · B ${scaleLabel(pair.bScale)}"
+            "Round ${pair.round}/${pair.totalRounds} · blind comparison"
         },
         fontWeight = FontWeight.Bold,
     )
+    Text("A/B ordering changes between rounds. Choose only by feel; candidate strength stays hidden until saved.")
     Text("Use Crisp while calibrating so A/B only measures the device-specific adjustment.")
 
     Spacer(Modifier.height(8.dp))
@@ -326,7 +325,7 @@ private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
         enabled = !session.isComplete,
         onClick = { haptics.previewCalibration(selectedTarget, pair.aScale) },
     ) {
-        Text("Play A · ${scaleLabel(pair.aScale)}")
+        Text("Play A")
     }
     Spacer(Modifier.height(6.dp))
     Button(
@@ -334,7 +333,7 @@ private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
         enabled = !session.isComplete,
         onClick = { haptics.previewCalibration(selectedTarget, pair.bScale) },
     ) {
-        Text("Play B · ${scaleLabel(pair.bScale)}")
+        Text("Play B")
     }
     Spacer(Modifier.height(6.dp))
     Button(
@@ -373,8 +372,6 @@ private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
         Text("Reset all device calibration")
     }
 
-    // profileRevision intentionally participates in composition so saved percentages
-    // refresh immediately after writes without coupling preferences to Compose state.
     if (profileRevision < 0) Text("")
 }
 
@@ -383,7 +380,6 @@ private fun MotionMeter(sample: MotionCadenceSample, mode: AdaptiveMotionMode) {
     val speed = sample.keysPerSecond
     val speedLabel = speed?.let { "${((it * 10f).roundToInt() / 10f)} keys/s" } ?: "—"
     val factorLabel = "${(sample.factor * 100f).roundToInt()}%"
-
     Text("Mode ${mode.label} · cadence $speedLabel · motion $factorLabel")
 }
 
@@ -403,11 +399,7 @@ private fun MotionLabKey(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .premiumKeyMotion(
-                pressed = pressed,
-                enabled = true,
-                style = style,
-            )
+            .premiumKeyMotion(pressed = pressed, enabled = true, style = style)
             .background(Color(0xFFF1F1F1))
             .clickable(
                 interactionSource = interactionSource,
@@ -432,25 +424,16 @@ fun AdaptiveMotionPicker(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .selectable(
-                        selected = mode == selected,
-                        onClick = { onSelected(mode) },
-                    )
+                    .selectable(selected = mode == selected, onClick = { onSelected(mode) })
                     .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(
-                    selected = mode == selected,
-                    onClick = null,
-                    modifier = Modifier.size(20.dp),
-                )
+                RadioButton(selected = mode == selected, onClick = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text(mode.label)
                     Text(mode.description)
-                    if (mode == AdaptiveMotionMode.Balanced) {
-                        Text("Recommended")
-                    }
+                    if (mode == AdaptiveMotionMode.Balanced) Text("Recommended")
                 }
             }
         }
@@ -478,17 +461,11 @@ fun HapticStrengthPicker(onPreview: () -> Unit) {
                     .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(
-                    selected = strength == selected,
-                    onClick = null,
-                    modifier = Modifier.size(20.dp),
-                )
+                RadioButton(selected = strength == selected, onClick = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text(strength.label)
-                    if (strength == HapticStrength.Crisp) {
-                        Text("Recommended")
-                    }
+                    if (strength == HapticStrength.Crisp) Text("Recommended")
                 }
             }
         }
@@ -514,11 +491,7 @@ fun LayoutPicker() {
                     .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(
-                    selected = item == selected,
-                    onClick = null,
-                    modifier = Modifier.size(20.dp),
-                )
+                RadioButton(selected = item == selected, onClick = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(text = item.label)
             }
