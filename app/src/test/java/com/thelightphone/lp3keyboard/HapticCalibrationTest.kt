@@ -1,5 +1,8 @@
 package com.thelightphone.lp3keyboard
 
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -25,21 +28,38 @@ class HapticCalibrationTest {
 
         val chosen = session.chooseA()
         val next = session.currentPair()
+        val nextLow = min(next.aScale, next.bScale)
+        val nextHigh = max(next.aScale, next.bScale)
 
         assertEquals(initial.aScale, chosen, 0.0001f)
-        assertTrue(next.aScale < chosen)
-        assertTrue(next.bScale > chosen)
-        assertTrue(next.bScale - next.aScale < initial.bScale - initial.aScale)
+        assertTrue(nextLow < chosen)
+        assertTrue(nextHigh > chosen)
+        assertTrue(abs(next.bScale - next.aScale) < abs(initial.bScale - initial.aScale))
     }
 
     @Test
-    fun `choosing B repeatedly converges and completes in five rounds`() {
+    fun `candidate ordering alternates so one letter is not always stronger`() {
+        val session = HapticCalibrationSession()
+        val first = session.currentPair()
+        assertTrue(first.aScale < first.bScale)
+
+        session.chooseA()
+        val second = session.currentPair()
+        assertTrue(second.aScale > second.bScale)
+
+        session.chooseA()
+        val third = session.currentPair()
+        assertTrue(third.aScale < third.bScale)
+    }
+
+    @Test
+    fun `repeated choices converge and complete in five rounds`() {
         val session = HapticCalibrationSession()
         var lastGap = Float.MAX_VALUE
 
         repeat(5) {
             val pair = session.currentPair()
-            val gap = pair.bScale - pair.aScale
+            val gap = abs(pair.bScale - pair.aScale)
             assertTrue(gap <= lastGap)
             lastGap = gap
             session.chooseB()
