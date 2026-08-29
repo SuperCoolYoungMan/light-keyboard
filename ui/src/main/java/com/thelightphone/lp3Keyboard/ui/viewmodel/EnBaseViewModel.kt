@@ -16,6 +16,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+private const val DEFAULT_REPEAT_INTERVAL_MS = 350L
+
+internal fun repeatIntervalMs(key: SpecialKey, repeatCount: Int): Long {
+    if (key != SpecialKey.Backspace) return DEFAULT_REPEAT_INTERVAL_MS
+    return when {
+        repeatCount < 2 -> 260L
+        repeatCount < 5 -> 180L
+        repeatCount < 9 -> 120L
+        repeatCount < 14 -> 85L
+        else -> 65L
+    }
+}
+
 /**
  * An abstract view model for the base, shared logic for English keyboards.
  *
@@ -63,10 +76,6 @@ abstract class EnBaseViewModel<SwipeResult>(
     }
 
     override val layoutOptionsFlow = MutableStateFlow(optionsForLayout(initialLayout))
-
-    companion object {
-        private const val REPEAT_INTERVAL_MS = 350L
-    }
 
     private val heldSpecialKeys = mutableMapOf<SpecialKey, Job>()
     private val heldKeys = mutableMapOf<Int, Job>()
@@ -200,7 +209,7 @@ abstract class EnBaseViewModel<SwipeResult>(
         delegateCallback?.onKeyLongPressed(code)
         heldKeys[code] = viewModelScope.launch {
             while (isActive) {
-                delay(REPEAT_INTERVAL_MS)
+                delay(DEFAULT_REPEAT_INTERVAL_MS)
                 delegateCallback?.onKeyRepeated(code)
             }
         }
@@ -223,9 +232,11 @@ abstract class EnBaseViewModel<SwipeResult>(
         delegateCallback?.onSpecialKeyLongPressed(key)
         if (allowRepeats) {
             heldSpecialKeys[key] = viewModelScope.launch {
+                var repeatCount = 0
                 while (isActive) {
-                    delay(REPEAT_INTERVAL_MS)
+                    delay(repeatIntervalMs(key, repeatCount))
                     delegateCallback?.onSpecialKeyRepeated(key)
+                    repeatCount++
                 }
             }
         }

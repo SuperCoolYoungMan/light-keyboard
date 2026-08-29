@@ -15,8 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
+import androidx.compose.material.Divider
 import androidx.compose.material.RadioButton
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
@@ -29,58 +33,173 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.thelightphone.lp3Keyboard.ui.layout.LayoutRegistryItem
 
-// Based on https://github.com/THEAccess/compose-keyboard-ime
-
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            Options()
-        }
+        setContent { KeyboardSettings() }
     }
 }
 
 @Composable
-fun Options() {
+fun KeyboardSettings() {
+    val ctx = LocalContext.current
+    val haptics = remember(ctx) { KeyboardHaptics(ctx) }
+    val capabilities = remember(haptics) { haptics.capabilities() }
+    val (text, setValue) = remember { mutableStateOf(TextFieldValue("안녕하세요 Hello")) }
+
     Column(
         modifier = Modifier
             .systemBarsPadding()
-            .padding(16.dp)
             .background(Color.White)
+            .verticalScroll(rememberScrollState())
+            .padding(18.dp)
             .fillMaxWidth(),
     ) {
-        val ctx = LocalContext.current
-        Text(text = "LP3 Keyboard")
-        val (text, setValue) = remember { mutableStateOf(TextFieldValue("Try here")) }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(modifier = Modifier.fillMaxWidth(), onClick = {
-            ctx.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-        }) {
-            Text(text = "1. Enable IME")
+        Text(text = "Light Keyboard", fontWeight = FontWeight.Bold)
+        Text(text = "Korean Dubeolsik + tactile tuning")
+
+        Spacer(Modifier.height(18.dp))
+        SectionTitle("Keyboard")
+
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { ctx.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
+        ) {
+            Text("Open keyboard settings")
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(modifier = Modifier.fillMaxWidth(), onClick = {
-            val imm = ctx.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
-            imm.showInputMethodPicker()
-        }) {
-            Text(text = "2. Select IME")
+
+        Spacer(Modifier.height(8.dp))
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                val imm = ctx.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                imm.showInputMethodPicker()
+            }
+        ) {
+            Text("Choose active keyboard")
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "3. Choose layout")
+
+        Spacer(Modifier.height(18.dp))
+        Divider()
+        Spacer(Modifier.height(14.dp))
+        SectionTitle("Layout")
+        Text("Long-press Space while typing to switch Korean ↔ English.")
+        Spacer(Modifier.height(8.dp))
         LayoutPicker()
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(Modifier.height(18.dp))
+        Divider()
+        Spacer(Modifier.height(14.dp))
+        SectionTitle("Haptic feel")
+        Text("Crisp is the reference tuning: short, precise, and low-rumble.")
+        Spacer(Modifier.height(8.dp))
+        HapticStrengthPicker(onPreview = {
+            haptics.perform(KeyboardHapticEvent.Space)
+        })
+
+        Spacer(Modifier.height(12.dp))
+        Text("Hardware profile")
+        Text(
+            if (capabilities.fullCrispProfile) {
+                "Full primitive composition supported"
+            } else {
+                "Partial primitive support · automatic fallback enabled"
+            }
+        )
+        Text(
+            "LowTick ${mark(capabilities.lowTick)}  Tick ${mark(capabilities.tick)}  " +
+                "Click ${mark(capabilities.click)}  Thud ${mark(capabilities.thud)}"
+        )
+        Text(
+            "Rise ${mark(capabilities.quickRise)}  Fall ${mark(capabilities.quickFall)}"
+        )
+
+        Spacer(Modifier.height(12.dp))
+        Text("Preview")
+        Spacer(Modifier.height(6.dp))
+        HapticPreviewButton("Character · soft tick") {
+            haptics.perform(KeyboardHapticEvent.Key)
+        }
+        HapticPreviewButton("Space · crisp click") {
+            haptics.perform(KeyboardHapticEvent.Space)
+        }
+        HapticPreviewButton("Language switch · two-stage") {
+            haptics.perform(KeyboardHapticEvent.LanguageSwitch)
+        }
+        HapticPreviewButton("Enter · confirmation") {
+            haptics.perform(KeyboardHapticEvent.Enter)
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Divider()
+        Spacer(Modifier.height(14.dp))
+        SectionTitle("Typing test")
         TextField(
             value = text,
             onValueChange = setValue,
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         )
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+private fun mark(value: Boolean): String = if (value) "✓" else "–"
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text = text, fontWeight = FontWeight.Bold)
+}
+
+@Composable
+private fun HapticPreviewButton(label: String, onClick: () -> Unit) {
+    Button(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
+        Text(label)
+    }
+    Spacer(Modifier.height(6.dp))
+}
+
+@Composable
+fun HapticStrengthPicker(onPreview: () -> Unit) {
+    val ctx = LocalContext.current
+    var selected by remember { mutableStateOf(HapticPreferences.getStrength(ctx)) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HapticStrength.entries.forEach { strength ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = strength == selected,
+                        onClick = {
+                            selected = strength
+                            HapticPreferences.setStrength(ctx, strength)
+                            if (strength != HapticStrength.Off) onPreview()
+                        }
+                    )
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(
+                    selected = strength == selected,
+                    onClick = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(strength.label)
+                    if (strength == HapticStrength.Crisp) {
+                        Text("Recommended")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -99,12 +218,12 @@ fun LayoutPicker() {
                             selected = item
                             LayoutPreferences.setActiveLayout(ctx, item)
                         },
-                    ),
+                    )
+                    .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RadioButton(
                     selected = item == selected,
-                    // Click is handled by the row's selectable modifier above.
                     onClick = null,
                     modifier = Modifier.size(20.dp),
                 )

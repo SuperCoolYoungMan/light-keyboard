@@ -1,7 +1,6 @@
 package com.thelightphone.lp3keyboard
 
 import android.content.SharedPreferences
-import android.os.Vibrator
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import androidx.lifecycle.Lifecycle
@@ -30,6 +29,9 @@ class IMEService : LifecycleInputMethodService(),
 
     private var renderedLayout: LayoutRegistryItem? = null
     private var viewModel: Lp3KeyboardViewModel<*>? = null
+    private val hangulComposer = HangulComposer()
+    private val haptics by lazy { KeyboardHaptics(this) }
+    private var suppressSpaceRepeatUntilNextPress = false
 
     private var layoutPrefs: SharedPreferences? = null
     private val layoutChangeListener =
@@ -39,10 +41,30 @@ class IMEService : LifecycleInputMethodService(),
             }
         }
 
+    private fun isKoreanLayout() = renderedLayout == LayoutRegistryItem.KoDubeolsik
+
+    private fun finishHangulComposition() {
+        if (hangulComposer.isEmpty) return
+        currentInputConnection?.finishComposingText()
+        hangulComposer.clear()
+    }
+
     private fun refreshLayoutIfNeeded() {
         if (LayoutPreferences.getActiveLayout(this) != renderedLayout) {
+            finishHangulComposition()
             setInputView(onCreateInputView())
         }
+    }
+
+    private fun toggleKoreanEnglishLayout() {
+        finishHangulComposition()
+        val target = if (isKoreanLayout()) {
+            LayoutRegistryItem.EnQwerty
+        } else {
+            LayoutRegistryItem.KoDubeolsik
+        }
+        LayoutPreferences.setActiveLayout(this, target)
+        refreshLayoutIfNeeded()
     }
 
     private fun buildViewModel(layout: LayoutRegistryItem): Lp3KeyboardViewModel<*> {
@@ -53,7 +75,7 @@ class IMEService : LifecycleInputMethodService(),
                 return layout.buildRootViewModel(
                     this@IMEService,
                     dummySwipeCallback,
-                    haptic = ::tick
+                    haptic = {}
                 ) as T
             }
         }
@@ -111,28 +133,48 @@ class IMEService : LifecycleInputMethodService(),
         get() = dispatcher.lifecycle
 
     private val store = ViewModelStore()
-    private val vibrator by lazy { getSystemService(Vibrator::class.java) }
-
-    private fun tick() {
-        // 50ms feels good on LP3, other device motors may allow faster buzz
-        vibrator.vibrate(50)
-    }
 
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
 
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
 
     override fun onWindowHidden() {
+        finishHangulComposition()
         super.onWindowHidden()
         viewModel?.cancelHeldKeys()
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        finishHangulComposition()
         updateCapsMode()
     }
 
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(
+            oldSelStart,
+            oldSelEnd,
+            newSelStart,
+            newSelEnd,
+            candidatesStart,
+            candidatesEnd
+        )
+        if (!hangulComposer.isEmpty &&
+            (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)
+        ) {
+            finishHangulComposition()
+        }
+    }
+
     private fun updateCapsMode() {
+        if (isKoreanLayout()) return
         val ic = currentInputConnection ?: return
         val ei = currentInputEditorInfo ?: return
         // might be set if the TextField is set to capitalize sentence starts, for example
@@ -141,45 +183,73 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     override fun onKeyPressed(code: Int) {
+        haptics.perform(KeyboardHapticEvent.Key)
     }
 
     override fun onSubmitWord(word: CharSequence) {
+        finishHangulComposition()
         currentInputConnection?.commitText("$word ", 1)
     }
 
     override fun onSpecialKeyPressed(key: SpecialKey) {
-        when (key) {
-            SpecialKey.Space -> {
-                currentInputConnection?.commitText(" ", 1)
-                updateCapsMode()
-            }
+        if (key == SpecialKey.Space) suppressSpaceRepeatUntilNextPress = false
 
-            else -> {}
+        val event = when (key) {
+            SpecialKey.Space -> KeyboardHapticEvent.Space
+            SpecialKey.UpCase, SpecialKey.DownCase -> KeyboardHapticEvent.Shift
+            SpecialKey.Backspace -> KeyboardHapticEvent.Backspace
+            SpecialKey.Return, SpecialKey.Submit -> KeyboardHapticEvent.Enter
+            else -> KeyboardHapticEvent.Key
         }
+        haptics.perform(event)
     }
 
     override fun onKeyReleased(code: Int) {
         val text = buildString { appendCodePoint(code) }
+        val char = text.singleOrNull()
+        if (isKoreanLayout() && char != null && HangulComposer.isHangulKey(char)) {
+            currentInputConnection?.setComposingText(hangulComposer.input(char), 1)
+            return
+        }
+
+        finishHangulComposition()
         currentInputConnection?.commitText(text, 1)
+        updateCapsMode()
+    }
+
+    private fun deleteOneBackspaceUnit() {
+        val ic = currentInputConnection ?: return
+        if (isKoreanLayout() && !hangulComposer.isEmpty) {
+            val text = hangulComposer.backspace()
+            ic.setComposingText(text, 1)
+            if (text.isEmpty()) ic.finishComposingText()
+            return
+        }
+
+        val before = ic.getTextBeforeCursor(1, 0)
+        val charsToDelete =
+            if (!before.isNullOrEmpty() && Character.isLowSurrogate(before[0])) 2 else 1
+        ic.deleteSurroundingText(charsToDelete, 0)
         updateCapsMode()
     }
 
     override fun onSpecialKeyReleased(key: SpecialKey) {
         when (key) {
-            SpecialKey.Backspace -> {
-                val ic = currentInputConnection ?: return
-                val before = ic.getTextBeforeCursor(1, 0)
-                val charsToDelete =
-                    if (!before.isNullOrEmpty() && Character.isLowSurrogate(before[0])) 2 else 1
-                ic.deleteSurroundingText(charsToDelete, 0)
+            SpecialKey.Space -> {
+                finishHangulComposition()
+                currentInputConnection?.commitText(" ", 1)
                 updateCapsMode()
             }
 
+            SpecialKey.Backspace -> deleteOneBackspaceUnit()
+
             SpecialKey.Return -> {
+                finishHangulComposition()
                 currentInputConnection?.commitText("\n", 1)
             }
 
             SpecialKey.Close -> {
+                finishHangulComposition()
                 requestHideSelf(0)
             }
 
@@ -188,28 +258,19 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     override fun onKeyLongPressed(code: Int) {
-    }
-
-    private fun deletePrecedingWord() {
-        val ic = currentInputConnection ?: return
-        // Get text before cursor to find the word boundary (max 100 chars long)
-        val before = ic.getTextBeforeCursor(100, 0) ?: return
-        val trimmed = before.trimEnd()
-        val lastSpace = trimmed.indexOfLast { it.isWhitespace() }
-        // Delete from cursor back to start of word (including trailing spaces)
-        val charsToDelete = before.length - (if (lastSpace >= 0) lastSpace + 1 else 0)
-        ic.deleteSurroundingText(charsToDelete, 0)
-        updateCapsMode()
+        haptics.perform(KeyboardHapticEvent.LongPress)
     }
 
     override fun onSpecialKeyLongPressed(key: SpecialKey) {
-        when (key) {
-            SpecialKey.Backspace -> {
-                deletePrecedingWord()
-            }
-
-            else -> {}
+        if (key == SpecialKey.Space) {
+            suppressSpaceRepeatUntilNextPress = true
+            haptics.perform(KeyboardHapticEvent.LanguageSwitch)
+            toggleKoreanEnglishLayout()
+            return
         }
+
+        haptics.perform(KeyboardHapticEvent.LongPress)
+        if (key == SpecialKey.Backspace) deleteOneBackspaceUnit()
     }
 
     override fun onKeyRepeated(code: Int) {
@@ -219,12 +280,16 @@ class IMEService : LifecycleInputMethodService(),
     override fun onSpecialKeyRepeated(specialKey: SpecialKey) {
         when (specialKey) {
             SpecialKey.Space -> {
+                if (suppressSpaceRepeatUntilNextPress) return
+                haptics.perform(KeyboardHapticEvent.Space)
+                finishHangulComposition()
                 currentInputConnection?.commitText(" ", 1)
                 updateCapsMode()
             }
 
             SpecialKey.Backspace -> {
-                deletePrecedingWord()
+                haptics.perform(KeyboardHapticEvent.BackspaceRepeat)
+                deleteOneBackspaceUnit()
             }
 
             else -> {}
