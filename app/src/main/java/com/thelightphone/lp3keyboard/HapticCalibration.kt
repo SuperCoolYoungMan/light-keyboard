@@ -1,6 +1,7 @@
 package com.thelightphone.lp3keyboard
 
 import android.content.Context
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -32,36 +33,40 @@ data class HapticCalibrationPair(
  *
  * It starts with two safely bounded intensity multipliers around the stock profile.
  * Each A/B choice recenters the next pair around the preferred candidate and halves
- * the search step. The final preferred scale is persisted per semantic haptic event.
+ * the search step. Candidate ordering alternates every round so A is not always the
+ * weaker option and B is not always the stronger option, reducing expectation bias.
  */
 class HapticCalibrationSession(
     private val totalRounds: Int = CALIBRATION_ROUNDS,
 ) {
     private var round = 1
-    private var aScale = CALIBRATION_INITIAL_LOW
-    private var bScale = CALIBRATION_INITIAL_HIGH
+    private var lowScale = CALIBRATION_INITIAL_LOW
+    private var highScale = CALIBRATION_INITIAL_HIGH
     private var lastPreferred = 1f
 
     val isComplete: Boolean
         get() = round > totalRounds
 
-    fun currentPair(): HapticCalibrationPair = HapticCalibrationPair(
-        round = min(round, totalRounds),
-        totalRounds = totalRounds,
-        aScale = aScale,
-        bScale = bScale,
-    )
+    fun currentPair(): HapticCalibrationPair {
+        val flip = round % 2 == 0
+        return HapticCalibrationPair(
+            round = min(round, totalRounds),
+            totalRounds = totalRounds,
+            aScale = if (flip) highScale else lowScale,
+            bScale = if (flip) lowScale else highScale,
+        )
+    }
 
-    fun chooseA(): Float = choose(aScale)
+    fun chooseA(): Float = choose(currentPair().aScale)
 
-    fun chooseB(): Float = choose(bScale)
+    fun chooseB(): Float = choose(currentPair().bScale)
 
     fun preferredScale(): Float = lastPreferred
 
     fun reset() {
         round = 1
-        aScale = CALIBRATION_INITIAL_LOW
-        bScale = CALIBRATION_INITIAL_HIGH
+        lowScale = CALIBRATION_INITIAL_LOW
+        highScale = CALIBRATION_INITIAL_HIGH
         lastPreferred = 1f
     }
 
@@ -72,14 +77,14 @@ class HapticCalibrationSession(
             return preferred
         }
 
-        val previousGap = (bScale - aScale).coerceAtLeast(0.02f)
+        val previousGap = abs(highScale - lowScale).coerceAtLeast(0.02f)
         val nextHalfGap = previousGap / 4f
-        aScale = (preferred - nextHalfGap).coerceIn(CALIBRATION_MIN_SCALE, CALIBRATION_MAX_SCALE)
-        bScale = (preferred + nextHalfGap).coerceIn(CALIBRATION_MIN_SCALE, CALIBRATION_MAX_SCALE)
+        lowScale = (preferred - nextHalfGap).coerceIn(CALIBRATION_MIN_SCALE, CALIBRATION_MAX_SCALE)
+        highScale = (preferred + nextHalfGap).coerceIn(CALIBRATION_MIN_SCALE, CALIBRATION_MAX_SCALE)
 
-        if (bScale - aScale < 0.02f) {
-            aScale = max(CALIBRATION_MIN_SCALE, preferred - 0.01f)
-            bScale = min(CALIBRATION_MAX_SCALE, preferred + 0.01f)
+        if (highScale - lowScale < 0.02f) {
+            lowScale = max(CALIBRATION_MIN_SCALE, preferred - 0.01f)
+            highScale = min(CALIBRATION_MAX_SCALE, preferred + 0.01f)
         }
 
         round += 1
