@@ -42,7 +42,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
@@ -347,17 +346,10 @@ fun RowScope.IconKey(
             painterResource(drawable),
             contentDescription = "TODO",
             tint = LocalKeyboardColors.current.foreground,
-            modifier = Modifier.then(
-                if (enableKeyAnimation) {
-                    Modifier.graphicsLayer {
-                        val isPressed = pressed
-                        scaleX = if (isPressed) 1.25f else 1f
-                        scaleY = if (isPressed) 1.25f else 1f
-                        translationY = if (isPressed) -12.dp.toPx() else 0f
-                    }
-                } else {
-                    Modifier
-                }
+            modifier = Modifier.premiumKeyMotion(
+                pressed = pressed,
+                enabled = enableKeyAnimation,
+                style = KeyMotionStyle.Icon,
             )
         )
     }
@@ -381,17 +373,11 @@ fun RowScope.SpaceBar(callback: Lp3KeyboardCallback, width: Dp, enableKeyAnimati
                 onReleased = onReleased,
                 onLongPressed = onLongPressed,
                 onPressedChanged = { pressed = it }
-            ).then(
-                if (enableKeyAnimation) {
-                    Modifier.graphicsLayer {
-                        val isPressed = pressed
-                        scaleX = if (isPressed) 1.1f else 1f
-                        scaleY = if (isPressed) 1.1f else 1f
-                        translationY = if (isPressed) -8.dp.toPx() else 0f
-                    }
-                } else {
-                    Modifier
-                }
+            )
+            .premiumKeyMotion(
+                pressed = pressed,
+                enabled = enableKeyAnimation,
+                style = KeyMotionStyle.Space,
             )
     ) {
         Box(
@@ -477,17 +463,10 @@ fun RowScope.Key(
             fontFamily = LocalAkkuratFamily.current,
             fontWeight = FontWeight.Normal,
             fontSize = STANDARD_KEY_TEXT_SP.sp,
-            modifier = Modifier.then(
-                if (enableKeyAnimation) {
-                    Modifier.graphicsLayer {
-                        val isPressed = pressed
-                        scaleX = if (isPressed) 1.25f else 1f
-                        scaleY = if (isPressed) 1.25f else 1f
-                        translationY = if (isPressed) -12.dp.toPx() else 0f
-                    }
-                } else {
-                    Modifier
-                }
+            modifier = Modifier.premiumKeyMotion(
+                pressed = pressed,
+                enabled = enableKeyAnimation,
+                style = KeyMotionStyle.Character,
             )
         )
     }
@@ -525,17 +504,10 @@ fun RowScope.MultiLabelKey(
             letterSpacing = 2.sp,
             fontSize = 16.sp,
             textAlign = TextAlign.Center,
-            modifier = Modifier.then(
-                if (enableKeyAnimation) {
-                    Modifier.graphicsLayer {
-                        val isPressed = pressed  // state read happens at draw time
-                        scaleX = if (isPressed) 1.25f else 1f
-                        scaleY = if (isPressed) 1.25f else 1f
-                        translationY = if (isPressed) -12.dp.toPx() else 0f
-                    }
-                } else {
-                    Modifier
-                }
+            modifier = Modifier.premiumKeyMotion(
+                pressed = pressed,
+                enabled = enableKeyAnimation,
+                style = KeyMotionStyle.MultiLabel,
             )
         )
     }
