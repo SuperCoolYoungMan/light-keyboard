@@ -17,9 +17,42 @@ enum class KeyboardHapticEvent {
     LongPress
 }
 
+data class HapticCapabilities(
+    val lowTick: Boolean,
+    val tick: Boolean,
+    val click: Boolean,
+    val thud: Boolean,
+    val quickRise: Boolean,
+    val quickFall: Boolean,
+) {
+    val fullCrispProfile: Boolean
+        get() = lowTick && tick && click && thud && quickRise && quickFall
+}
+
 class KeyboardHaptics(private val context: Context) {
     private val vibrator =
         context.getSystemService(VibratorManager::class.java).defaultVibrator
+
+    fun capabilities(): HapticCapabilities {
+        val c = VibrationEffect.Composition
+        val primitives = intArrayOf(
+            c.PRIMITIVE_LOW_TICK,
+            c.PRIMITIVE_TICK,
+            c.PRIMITIVE_CLICK,
+            c.PRIMITIVE_THUD,
+            c.PRIMITIVE_QUICK_RISE,
+            c.PRIMITIVE_QUICK_FALL,
+        )
+        val supported = vibrator.arePrimitivesSupported(*primitives)
+        return HapticCapabilities(
+            lowTick = supported[0],
+            tick = supported[1],
+            click = supported[2],
+            thud = supported[3],
+            quickRise = supported[4],
+            quickFall = supported[5],
+        )
+    }
 
     fun perform(event: KeyboardHapticEvent) {
         if (!vibrator.hasVibrator()) return
