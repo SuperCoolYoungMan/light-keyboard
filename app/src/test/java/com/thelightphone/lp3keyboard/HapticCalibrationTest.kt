@@ -53,6 +53,46 @@ class HapticCalibrationTest {
     }
 
     @Test
+    fun `stronger physical preference converges identically despite alternating labels`() {
+        val session = HapticCalibrationSession()
+        var lastChosen = 1f
+
+        repeat(5) {
+            val pair = session.currentPair()
+            lastChosen = if (pair.aScale > pair.bScale) {
+                session.chooseA()
+            } else {
+                session.chooseB()
+            }
+        }
+
+        assertTrue(session.isComplete)
+        assertEquals(lastChosen, session.preferredScale(), 0.0001f)
+        assertTrue(session.preferredScale() > 1f)
+        assertTrue(session.preferredScale() in 0.55f..1.45f)
+    }
+
+    @Test
+    fun `weaker physical preference converges identically despite alternating labels`() {
+        val session = HapticCalibrationSession()
+        var lastChosen = 1f
+
+        repeat(5) {
+            val pair = session.currentPair()
+            lastChosen = if (pair.aScale < pair.bScale) {
+                session.chooseA()
+            } else {
+                session.chooseB()
+            }
+        }
+
+        assertTrue(session.isComplete)
+        assertEquals(lastChosen, session.preferredScale(), 0.0001f)
+        assertTrue(session.preferredScale() < 1f)
+        assertTrue(session.preferredScale() in 0.55f..1.45f)
+    }
+
+    @Test
     fun `repeated choices converge and complete in five rounds`() {
         val session = HapticCalibrationSession()
         var lastGap = Float.MAX_VALUE
