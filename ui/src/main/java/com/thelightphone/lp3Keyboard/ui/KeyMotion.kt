@@ -45,16 +45,16 @@ internal class TypingCadenceTracker {
         ) {
             return MotionCadenceSample(
                 timestampMs = nowMs,
-                smoothedIntervalMs = null,
+                smoothedIntervalMs = ADAPTIVE_MOTION_FULL_INTERVAL_MS,
                 factor = 1f,
             )
         }
 
         val intervalMs = (nowMs - previousPress).toFloat()
-        val smoothed = smoothedIntervalMs?.let { previous ->
-            previous * (1f - ADAPTIVE_MOTION_SMOOTHING_ALPHA) +
+        val previousSmoothed = smoothedIntervalMs ?: ADAPTIVE_MOTION_FULL_INTERVAL_MS
+        val smoothed =
+            previousSmoothed * (1f - ADAPTIVE_MOTION_SMOOTHING_ALPHA) +
                 intervalMs * ADAPTIVE_MOTION_SMOOTHING_ALPHA
-        } ?: intervalMs
 
         return MotionCadenceSample(
             timestampMs = nowMs,
