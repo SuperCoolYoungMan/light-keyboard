@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import kotlin.math.abs
 
 
 enum class KeyboardHapticEvent {
@@ -56,25 +57,46 @@ class KeyboardHaptics(private val context: Context) {
     }
 
     fun perform(event: KeyboardHapticEvent) {
+        perform(event, calibrationScaleOverride = null)
+    }
+
+    fun previewCalibration(target: HapticCalibrationTarget, scale: Float) {
+        perform(target.event, calibrationScaleOverride = scale)
+    }
+
+    private fun perform(event: KeyboardHapticEvent, calibrationScaleOverride: Float?) {
         if (!vibrator.hasVibrator()) return
 
         val strength = HapticPreferences.getStrength(context)
         if (strength == HapticStrength.Off) return
 
-        val composition = compositionFor(event, strength.scale)
+        val target = HapticCalibrationPreferences.targetFor(event)
+        val calibrationScale = calibrationScaleOverride
+            ?: target?.let { HapticCalibrationPreferences.getScale(context, it) }
+            ?: 1f
+        val outputScale = (strength.scale * calibrationScale).coerceIn(0.05f, 1.8f)
+
+        val composition = compositionFor(event, outputScale)
         if (composition != null) {
             vibrator.vibrate(composition)
             return
         }
 
-        val predefined = predefinedEffect(event)
-        val support = vibrator.areEffectsSupported(predefined).firstOrNull()
-        if (support != Vibrator.VIBRATION_EFFECT_SUPPORT_NO) {
-            vibrator.vibrate(VibrationEffect.createPredefined(predefined))
-            return
+        // Predefined effects are hardware-tuned but cannot express our event-specific
+        // calibration multiplier. Keep them only for the untouched Crisp baseline;
+        // calibrated or non-Crisp profiles use the amplitude-aware fallback instead.
+        val usePredefined =
+            strength == HapticStrength.Crisp && abs(calibrationScale - 1f) < 0.01f
+        if (usePredefined) {
+            val predefined = predefinedEffect(event)
+            val support = vibrator.areEffectsSupported(predefined).firstOrNull()
+            if (support != Vibrator.VIBRATION_EFFECT_SUPPORT_NO) {
+                vibrator.vibrate(VibrationEffect.createPredefined(predefined))
+                return
+            }
         }
 
-        vibrator.vibrate(fallback(event, strength.scale))
+        vibrator.vibrate(fallback(event, outputScale))
     }
 
     private fun compositionFor(event: KeyboardHapticEvent, strengthScale: Float): VibrationEffect? {
