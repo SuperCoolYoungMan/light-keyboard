@@ -93,9 +93,7 @@ fun KeyboardSettings() {
         Button(
             modifier = Modifier.fillMaxWidth(),
             onClick = { ctx.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
-        ) {
-            Text("Open keyboard settings")
-        }
+        ) { Text("Open keyboard settings") }
 
         Spacer(Modifier.height(8.dp))
         Button(
@@ -104,147 +102,70 @@ fun KeyboardSettings() {
                 val imm = ctx.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
                 imm.showInputMethodPicker()
             }
-        ) {
-            Text("Choose active keyboard")
-        }
+        ) { Text("Choose active keyboard") }
 
-        Spacer(Modifier.height(18.dp))
-        Divider()
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp)); Divider(); Spacer(Modifier.height(14.dp))
         SectionTitle("Layout")
         Text("Long-press Space while typing to switch Korean ↔ English.")
-        Spacer(Modifier.height(8.dp))
-        LayoutPicker()
+        Spacer(Modifier.height(8.dp)); LayoutPicker()
 
-        Spacer(Modifier.height(18.dp))
-        Divider()
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp)); Divider(); Spacer(Modifier.height(14.dp))
         SectionTitle("Haptic feel")
         Text("Crisp is the reference tuning: short, precise, and low-rumble.")
         Spacer(Modifier.height(8.dp))
-        HapticStrengthPicker(onPreview = {
-            haptics.perform(KeyboardHapticEvent.Space)
-        })
+        HapticStrengthPicker(onPreview = { haptics.perform(KeyboardHapticEvent.Space) })
 
         Spacer(Modifier.height(12.dp))
         Text("Hardware profile")
-        Text(
-            if (capabilities.fullCrispProfile) {
-                "Full primitive composition supported"
-            } else {
-                "Partial primitive support · automatic fallback enabled"
-            }
-        )
-        Text(
-            "LowTick ${mark(capabilities.lowTick)}  Tick ${mark(capabilities.tick)}  " +
-                "Click ${mark(capabilities.click)}  Thud ${mark(capabilities.thud)}"
-        )
-        Text(
-            "Rise ${mark(capabilities.quickRise)}  Fall ${mark(capabilities.quickFall)}"
-        )
+        Text(if (capabilities.fullCrispProfile) "Full primitive composition supported" else "Partial primitive support · automatic fallback enabled")
+        Text("LowTick ${mark(capabilities.lowTick)}  Tick ${mark(capabilities.tick)}  Click ${mark(capabilities.click)}  Thud ${mark(capabilities.thud)}")
+        Text("Rise ${mark(capabilities.quickRise)}  Fall ${mark(capabilities.quickFall)}")
 
-        Spacer(Modifier.height(18.dp))
-        Divider()
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp)); Divider(); Spacer(Modifier.height(14.dp))
         SectionTitle("Device haptic calibration")
-        Text("Compare A/B on the actual phone. Five choices narrow the preferred strength for each action.")
-        Spacer(Modifier.height(8.dp))
-        HapticCalibrationLab(haptics)
+        Text("Blind A/B comparison on the actual phone. Five choices narrow the preferred strength for each action.")
+        Spacer(Modifier.height(8.dp)); HapticCalibrationLab(haptics)
 
-        Spacer(Modifier.height(18.dp))
-        Divider()
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp)); Divider(); Spacer(Modifier.height(14.dp))
         SectionTitle("Adaptive motion")
         Text("Only visual travel changes with typing speed. Haptic strength stays untouched.")
         Spacer(Modifier.height(8.dp))
-        AdaptiveMotionPicker(
-            selected = motionMode,
-            onSelected = { mode ->
-                motionMode = mode
-                AdaptiveMotionPreferences.setMode(ctx, mode)
-                labTracker.reset()
-                labSample = MotionCadenceSample(0L, null, 1f)
-            }
-        )
+        AdaptiveMotionPicker(selected = motionMode, onSelected = { mode ->
+            motionMode = mode
+            AdaptiveMotionPreferences.setMode(ctx, mode)
+            labTracker.reset()
+            labSample = MotionCadenceSample(0L, null, 1f)
+        })
 
-        Spacer(Modifier.height(18.dp))
-        Divider()
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp)); Divider(); Spacer(Modifier.height(14.dp))
         SectionTitle("Haptic / Motion Lab")
         Text("Press the samples or type below. Saved device calibration is applied automatically.")
-        Spacer(Modifier.height(8.dp))
-        MotionMeter(labSample, motionMode)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp)); MotionMeter(labSample, motionMode); Spacer(Modifier.height(10.dp))
 
-        MotionLabKey(
-            label = "Character · lift + soft tick",
-            style = KeyMotionStyle.Character,
-            onPress = {
-                haptics.perform(KeyboardHapticEvent.Key)
-                recordLabPress()
-            }
-        )
-        MotionLabKey(
-            label = "Space · quiet compression",
-            style = KeyMotionStyle.Space,
-            onPress = {
-                haptics.perform(KeyboardHapticEvent.Space)
-                recordLabPress()
-            }
-        )
-        MotionLabKey(
-            label = "Language switch · two-stage",
-            style = KeyMotionStyle.ModeSwitch,
-            onPress = {
-                haptics.perform(KeyboardHapticEvent.LanguageSwitch)
-                recordLabPress()
-            }
-        )
-        MotionLabKey(
-            label = "Enter · press + confirmation",
-            style = KeyMotionStyle.Enter,
-            onPress = {
-                haptics.perform(KeyboardHapticEvent.Enter)
-                recordLabPress()
-            }
-        )
+        MotionLabKey("Character · lift + soft tick", KeyMotionStyle.Character) { haptics.perform(KeyboardHapticEvent.Key); recordLabPress() }
+        MotionLabKey("Space · quiet compression", KeyMotionStyle.Space) { haptics.perform(KeyboardHapticEvent.Space); recordLabPress() }
+        MotionLabKey("Language switch · two-stage", KeyMotionStyle.ModeSwitch) { haptics.perform(KeyboardHapticEvent.LanguageSwitch); recordLabPress() }
+        MotionLabKey("Enter · press + confirmation", KeyMotionStyle.Enter) { haptics.perform(KeyboardHapticEvent.Enter); recordLabPress() }
 
         Spacer(Modifier.height(8.dp))
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = {
-                labTracker.reset()
-                labSample = MotionCadenceSample(0L, null, 1f)
-            }
-        ) {
-            Text("Reset motion lab")
-        }
+        Button(modifier = Modifier.fillMaxWidth(), onClick = {
+            labTracker.reset(); labSample = MotionCadenceSample(0L, null, 1f)
+        }) { Text("Reset motion lab") }
 
-        Spacer(Modifier.height(18.dp))
-        Divider()
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp)); Divider(); Spacer(Modifier.height(14.dp))
         SectionTitle("Typing test")
-        TextField(
-            value = text,
-            onValueChange = { next ->
-                if (next.text != text.text) recordLabPress()
-                text = next
-            },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-        )
+        TextField(value = text, onValueChange = { next ->
+            if (next.text != text.text) recordLabPress()
+            text = next
+        }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences))
         Spacer(Modifier.height(24.dp))
     }
 }
 
 private fun mark(value: Boolean): String = if (value) "✓" else "–"
-
 private fun scaleLabel(scale: Float): String = "${(scale * 100f).roundToInt()}%"
 
-@Composable
-private fun SectionTitle(text: String) {
-    Text(text = text, fontWeight = FontWeight.Bold)
-}
+@Composable private fun SectionTitle(text: String) { Text(text = text, fontWeight = FontWeight.Bold) }
 
 @Composable
 private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
@@ -256,202 +177,80 @@ private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
     var status by remember(selectedTarget, generation) { mutableStateOf<String?>(null) }
     var profileRevision by remember { mutableIntStateOf(0) }
 
-    fun resetSession() {
-        generation += 1
-    }
-
+    fun resetSession() { generation += 1 }
     fun preferA() {
         val chosen = session.chooseA()
         if (session.isComplete) {
-            HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen)
-            profileRevision += 1
+            HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen); profileRevision += 1
             status = "Saved ${selectedTarget.label} at ${scaleLabel(chosen)}"
-        } else {
-            pair = session.currentPair()
-            status = null
-        }
+        } else { pair = session.currentPair(); status = null }
     }
-
     fun preferB() {
         val chosen = session.chooseB()
         if (session.isComplete) {
-            HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen)
-            profileRevision += 1
+            HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen); profileRevision += 1
             status = "Saved ${selectedTarget.label} at ${scaleLabel(chosen)}"
-        } else {
-            pair = session.currentPair()
-            status = null
-        }
+        } else { pair = session.currentPair(); status = null }
     }
 
     Text("Target")
     HapticCalibrationTarget.entries.forEach { target ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .selectable(
-                    selected = target == selectedTarget,
-                    onClick = {
-                        selectedTarget = target
-                        status = null
-                    }
-                )
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RadioButton(
-                selected = target == selectedTarget,
-                onClick = null,
-                modifier = Modifier.size(20.dp),
-            )
+        Row(modifier = Modifier.fillMaxWidth().selectable(selected = target == selectedTarget, onClick = {
+            selectedTarget = target; status = null
+        }).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = target == selectedTarget, onClick = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text("${target.label} · saved ${scaleLabel(HapticCalibrationPreferences.getScale(ctx, target))}")
         }
     }
 
     Spacer(Modifier.height(8.dp))
-    Text(
-        if (session.isComplete) {
-            status ?: "Calibration complete"
-        } else {
-            "Round ${pair.round}/${pair.totalRounds} · A ${scaleLabel(pair.aScale)} · B ${scaleLabel(pair.bScale)}"
-        },
-        fontWeight = FontWeight.Bold,
-    )
+    Text(if (session.isComplete) status ?: "Calibration complete" else "Round ${pair.round}/${pair.totalRounds} · blind comparison", fontWeight = FontWeight.Bold)
+    Text("A/B ordering changes between rounds. Choose only by feel; candidate strength stays hidden until saved.")
     Text("Use Crisp while calibrating so A/B only measures the device-specific adjustment.")
 
     Spacer(Modifier.height(8.dp))
-    Button(
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !session.isComplete,
-        onClick = { haptics.previewCalibration(selectedTarget, pair.aScale) },
-    ) {
-        Text("Play A · ${scaleLabel(pair.aScale)}")
-    }
+    Button(modifier = Modifier.fillMaxWidth(), enabled = !session.isComplete, onClick = { haptics.previewCalibration(selectedTarget, pair.aScale) }) { Text("Play A") }
     Spacer(Modifier.height(6.dp))
-    Button(
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !session.isComplete,
-        onClick = { haptics.previewCalibration(selectedTarget, pair.bScale) },
-    ) {
-        Text("Play B · ${scaleLabel(pair.bScale)}")
-    }
+    Button(modifier = Modifier.fillMaxWidth(), enabled = !session.isComplete, onClick = { haptics.previewCalibration(selectedTarget, pair.bScale) }) { Text("Play B") }
     Spacer(Modifier.height(6.dp))
-    Button(
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !session.isComplete,
-        onClick = ::preferA,
-    ) {
-        Text("Prefer A")
-    }
+    Button(modifier = Modifier.fillMaxWidth(), enabled = !session.isComplete, onClick = ::preferA) { Text("Prefer A") }
     Spacer(Modifier.height(6.dp))
-    Button(
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !session.isComplete,
-        onClick = ::preferB,
-    ) {
-        Text("Prefer B")
-    }
-
+    Button(modifier = Modifier.fillMaxWidth(), enabled = !session.isComplete, onClick = ::preferB) { Text("Prefer B") }
     Spacer(Modifier.height(8.dp))
-    Button(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = { resetSession() },
-    ) {
-        Text("Restart this target")
-    }
+    Button(modifier = Modifier.fillMaxWidth(), onClick = { resetSession() }) { Text("Restart this target") }
     Spacer(Modifier.height(6.dp))
-    Button(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = {
-            HapticCalibrationPreferences.reset(ctx)
-            profileRevision += 1
-            status = "Device haptic profile reset to 100%"
-            resetSession()
-        },
-    ) {
-        Text("Reset all device calibration")
-    }
-
-    // profileRevision intentionally participates in composition so saved percentages
-    // refresh immediately after writes without coupling preferences to Compose state.
+    Button(modifier = Modifier.fillMaxWidth(), onClick = {
+        HapticCalibrationPreferences.reset(ctx); profileRevision += 1
+        status = "Device haptic profile reset to 100%"; resetSession()
+    }) { Text("Reset all device calibration") }
     if (profileRevision < 0) Text("")
 }
 
 @Composable
 private fun MotionMeter(sample: MotionCadenceSample, mode: AdaptiveMotionMode) {
-    val speed = sample.keysPerSecond
-    val speedLabel = speed?.let { "${((it * 10f).roundToInt() / 10f)} keys/s" } ?: "—"
-    val factorLabel = "${(sample.factor * 100f).roundToInt()}%"
-
-    Text("Mode ${mode.label} · cadence $speedLabel · motion $factorLabel")
+    val speedLabel = sample.keysPerSecond?.let { "${((it * 10f).roundToInt() / 10f)} keys/s" } ?: "—"
+    Text("Mode ${mode.label} · cadence $speedLabel · motion ${(sample.factor * 100f).roundToInt()}%")
 }
 
 @Composable
-private fun MotionLabKey(
-    label: String,
-    style: KeyMotionStyle,
-    onPress: () -> Unit,
-) {
+private fun MotionLabKey(label: String, style: KeyMotionStyle, onPress: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-
-    LaunchedEffect(pressed) {
-        if (pressed) onPress()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .premiumKeyMotion(
-                pressed = pressed,
-                enabled = true,
-                style = style,
-            )
-            .background(Color(0xFFF1F1F1))
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = {},
-            )
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label)
-    }
+    LaunchedEffect(pressed) { if (pressed) onPress() }
+    Box(modifier = Modifier.fillMaxWidth().premiumKeyMotion(pressed = pressed, enabled = true, style = style)
+        .background(Color(0xFFF1F1F1)).clickable(interactionSource = interactionSource, indication = null, onClick = {})
+        .padding(horizontal = 14.dp, vertical = 12.dp), contentAlignment = Alignment.Center) { Text(label) }
     Spacer(Modifier.height(7.dp))
 }
 
 @Composable
-fun AdaptiveMotionPicker(
-    selected: AdaptiveMotionMode,
-    onSelected: (AdaptiveMotionMode) -> Unit,
-) {
+fun AdaptiveMotionPicker(selected: AdaptiveMotionMode, onSelected: (AdaptiveMotionMode) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         AdaptiveMotionMode.entries.forEach { mode ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(
-                        selected = mode == selected,
-                        onClick = { onSelected(mode) },
-                    )
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(
-                    selected = mode == selected,
-                    onClick = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(mode.label)
-                    Text(mode.description)
-                    if (mode == AdaptiveMotionMode.Balanced) {
-                        Text("Recommended")
-                    }
-                }
+            Row(modifier = Modifier.fillMaxWidth().selectable(selected = mode == selected, onClick = { onSelected(mode) }).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = mode == selected, onClick = null, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
+                Column { Text(mode.label); Text(mode.description); if (mode == AdaptiveMotionMode.Balanced) Text("Recommended") }
             }
         }
     }
@@ -461,35 +260,13 @@ fun AdaptiveMotionPicker(
 fun HapticStrengthPicker(onPreview: () -> Unit) {
     val ctx = LocalContext.current
     var selected by remember { mutableStateOf(HapticPreferences.getStrength(ctx)) }
-
     Column(modifier = Modifier.fillMaxWidth()) {
         HapticStrength.entries.forEach { strength ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(
-                        selected = strength == selected,
-                        onClick = {
-                            selected = strength
-                            HapticPreferences.setStrength(ctx, strength)
-                            if (strength != HapticStrength.Off) onPreview()
-                        }
-                    )
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(
-                    selected = strength == selected,
-                    onClick = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(strength.label)
-                    if (strength == HapticStrength.Crisp) {
-                        Text("Recommended")
-                    }
-                }
+            Row(modifier = Modifier.fillMaxWidth().selectable(selected = strength == selected, onClick = {
+                selected = strength; HapticPreferences.setStrength(ctx, strength); if (strength != HapticStrength.Off) onPreview()
+            }).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = strength == selected, onClick = null, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
+                Column { Text(strength.label); if (strength == HapticStrength.Crisp) Text("Recommended") }
             }
         }
     }
@@ -501,26 +278,10 @@ fun LayoutPicker() {
     var selected by remember { mutableStateOf(LayoutPreferences.getActiveLayout(ctx)) }
     Column(modifier = Modifier.fillMaxWidth()) {
         LayoutRegistryItem.entries.forEach { item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(
-                        selected = item == selected,
-                        onClick = {
-                            selected = item
-                            LayoutPreferences.setActiveLayout(ctx, item)
-                        },
-                    )
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(
-                    selected = item == selected,
-                    onClick = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = item.label)
+            Row(modifier = Modifier.fillMaxWidth().selectable(selected = item == selected, onClick = {
+                selected = item; LayoutPreferences.setActiveLayout(ctx, item)
+            }).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = item == selected, onClick = null, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text(item.label)
             }
         }
     }
