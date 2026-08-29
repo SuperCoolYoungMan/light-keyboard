@@ -1,14 +1,96 @@
 package com.thelightphone.lp3Keyboard.ui
 
+import android.os.SystemClock
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+
+private const val ADAPTIVE_MOTION_FULL_INTERVAL_MS = 260f
+private const val ADAPTIVE_MOTION_FAST_INTERVAL_MS = 125f
+private const val ADAPTIVE_MOTION_MIN_FACTOR = 0.32f
+private const val ADAPTIVE_MOTION_RESET_MS = 900L
+private const val ADAPTIVE_MOTION_SMOOTHING_ALPHA = 0.45f
+
+internal data class MotionCadenceSample(
+    val timestampMs: Long,
+    val smoothedIntervalMs: Float?,
+    val factor: Float,
+)
+
+/**
+ * Tracks keyboard-wide press cadence without owning Compose state.
+ *
+ * A preview/commit split lets the pressed key choose its motion factor during
+ * composition, while the cadence history is only mutated after that composition
+ * is successfully applied. This avoids counting speculative/restarted composition.
+ */
+internal class TypingCadenceTracker {
+    private var lastPressMs: Long? = null
+    private var smoothedIntervalMs: Float? = null
+
+    fun previewPress(nowMs: Long): MotionCadenceSample {
+        val previousPress = lastPressMs
+        if (
+            previousPress == null ||
+            nowMs <= previousPress ||
+            nowMs - previousPress > ADAPTIVE_MOTION_RESET_MS
+        ) {
+            return MotionCadenceSample(
+                timestampMs = nowMs,
+                smoothedIntervalMs = ADAPTIVE_MOTION_FULL_INTERVAL_MS,
+                factor = 1f,
+            )
+        }
+
+        val intervalMs = (nowMs - previousPress).toFloat()
+        val previousSmoothed = smoothedIntervalMs ?: ADAPTIVE_MOTION_FULL_INTERVAL_MS
+        val smoothed =
+            previousSmoothed * (1f - ADAPTIVE_MOTION_SMOOTHING_ALPHA) +
+                intervalMs * ADAPTIVE_MOTION_SMOOTHING_ALPHA
+
+        return MotionCadenceSample(
+            timestampMs = nowMs,
+            smoothedIntervalMs = smoothed,
+            factor = adaptiveMotionFactor(smoothed),
+        )
+    }
+
+    fun commit(sample: MotionCadenceSample) {
+        lastPressMs = sample.timestampMs
+        smoothedIntervalMs = sample.smoothedIntervalMs
+    }
+
+    fun recordPress(nowMs: Long): Float {
+        val sample = previewPress(nowMs)
+        commit(sample)
+        return sample.factor
+    }
+
+    fun reset() {
+        lastPressMs = null
+        smoothedIntervalMs = null
+    }
+}
+
+internal fun adaptiveMotionFactor(intervalMs: Float): Float {
+    if (intervalMs >= ADAPTIVE_MOTION_FULL_INTERVAL_MS) return 1f
+    if (intervalMs <= ADAPTIVE_MOTION_FAST_INTERVAL_MS) return ADAPTIVE_MOTION_MIN_FACTOR
+
+    val progress =
+        (intervalMs - ADAPTIVE_MOTION_FAST_INTERVAL_MS) /
+            (ADAPTIVE_MOTION_FULL_INTERVAL_MS - ADAPTIVE_MOTION_FAST_INTERVAL_MS)
+    return ADAPTIVE_MOTION_MIN_FACTOR + progress * (1f - ADAPTIVE_MOTION_MIN_FACTOR)
+}
+
+private val adaptiveMotionCadence = TypingCadenceTracker()
 
 enum class KeyMotionStyle(
     val pressedScale: Float,
@@ -88,8 +170,9 @@ internal fun motionStyleFor(key: SpecialKey): KeyMotionStyle = when (key) {
  * Short, non-bouncy key motion intended to complement touch-down haptics.
  *
  * Character keys lift very slightly, while action keys such as Enter and
- * Backspace compress downward. The visual direction reinforces the haptic
- * meaning without adding spring overshoot or repeated bounce while a key is held.
+ * Backspace compress downward. At fast typing cadence the visual travel is
+ * automatically reduced while haptics remain unchanged, preventing the keyboard
+ * from looking busy during rapid input.
  */
 @Composable
 fun Modifier.premiumKeyMotion(
@@ -99,16 +182,40 @@ fun Modifier.premiumKeyMotion(
 ): Modifier {
     if (!enabled) return this
 
+    val cadenceSample = remember(pressed) {
+        if (pressed) {
+            adaptiveMotionCadence.previewPress(SystemClock.uptimeMillis())
+        } else {
+            MotionCadenceSample(0L, null, 1f)
+        }
+    }
+
+    LaunchedEffect(pressed) {
+        if (pressed) adaptiveMotionCadence.commit(cadenceSample)
+    }
+
+    val motionFactor = if (pressed) cadenceSample.factor else 1f
+    val targetScale = if (pressed) {
+        1f + (style.pressedScale - 1f) * motionFactor
+    } else {
+        1f
+    }
+    val targetTranslationYDp = if (pressed) {
+        style.translationYDp * motionFactor
+    } else {
+        0f
+    }
+
     val duration = if (pressed) style.attackMs else style.releaseMs
     val easing = if (pressed) FastOutLinearInEasing else LinearOutSlowInEasing
 
     val scale by animateFloatAsState(
-        targetValue = if (pressed) style.pressedScale else 1f,
+        targetValue = targetScale,
         animationSpec = tween(durationMillis = duration, easing = easing),
         label = "keyScale",
     )
     val translationYDp by animateFloatAsState(
-        targetValue = if (pressed) style.translationYDp else 0f,
+        targetValue = targetTranslationYDp,
         animationSpec = tween(durationMillis = duration, easing = easing),
         label = "keyTranslationY",
     )
