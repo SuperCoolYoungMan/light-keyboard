@@ -32,6 +32,7 @@ import androidx.compose.material.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -138,9 +139,15 @@ fun KeyboardSettings() {
             "LowTick ${mark(capabilities.lowTick)}  Tick ${mark(capabilities.tick)}  " +
                 "Click ${mark(capabilities.click)}  Thud ${mark(capabilities.thud)}"
         )
-        Text(
-            "Rise ${mark(capabilities.quickRise)}  Fall ${mark(capabilities.quickFall)}"
-        )
+        Text("Rise ${mark(capabilities.quickRise)}  Fall ${mark(capabilities.quickFall)}")
+
+        Spacer(Modifier.height(18.dp))
+        Divider()
+        Spacer(Modifier.height(14.dp))
+        SectionTitle("Device haptic calibration")
+        Text("Blind A/B comparison on the actual phone. Five choices narrow the preferred strength for each action.")
+        Spacer(Modifier.height(8.dp))
+        HapticCalibrationLab(haptics)
 
         Spacer(Modifier.height(18.dp))
         Divider()
@@ -162,7 +169,7 @@ fun KeyboardSettings() {
         Divider()
         Spacer(Modifier.height(14.dp))
         SectionTitle("Haptic / Motion Lab")
-        Text("Press the samples or type below. The meter shows the last smoothed cadence.")
+        Text("Press the samples or type below. Saved device calibration is applied automatically.")
         Spacer(Modifier.height(8.dp))
         MotionMeter(labSample, motionMode)
         Spacer(Modifier.height(10.dp))
@@ -230,9 +237,142 @@ fun KeyboardSettings() {
 
 private fun mark(value: Boolean): String = if (value) "✓" else "–"
 
+private fun scaleLabel(scale: Float): String = "${(scale * 100f).roundToInt()}%"
+
 @Composable
 private fun SectionTitle(text: String) {
     Text(text = text, fontWeight = FontWeight.Bold)
+}
+
+@Composable
+private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
+    val ctx = LocalContext.current
+    var selectedTarget by remember { mutableStateOf(HapticCalibrationTarget.Character) }
+    var generation by remember { mutableIntStateOf(0) }
+    val session = remember(selectedTarget, generation) { HapticCalibrationSession() }
+    var pair by remember(selectedTarget, generation) { mutableStateOf(session.currentPair()) }
+    var status by remember(selectedTarget, generation) { mutableStateOf<String?>(null) }
+    var profileRevision by remember { mutableIntStateOf(0) }
+
+    fun resetSession() {
+        generation += 1
+    }
+
+    fun preferA() {
+        val chosen = session.chooseA()
+        if (session.isComplete) {
+            HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen)
+            profileRevision += 1
+            status = "Saved ${selectedTarget.label} at ${scaleLabel(chosen)}"
+        } else {
+            pair = session.currentPair()
+            status = null
+        }
+    }
+
+    fun preferB() {
+        val chosen = session.chooseB()
+        if (session.isComplete) {
+            HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen)
+            profileRevision += 1
+            status = "Saved ${selectedTarget.label} at ${scaleLabel(chosen)}"
+        } else {
+            pair = session.currentPair()
+            status = null
+        }
+    }
+
+    Text("Target")
+    HapticCalibrationTarget.entries.forEach { target ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = target == selectedTarget,
+                    onClick = {
+                        selectedTarget = target
+                        status = null
+                    }
+                )
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(
+                selected = target == selectedTarget,
+                onClick = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("${target.label} · saved ${scaleLabel(HapticCalibrationPreferences.getScale(ctx, target))}")
+        }
+    }
+
+    Spacer(Modifier.height(8.dp))
+    Text(
+        if (session.isComplete) {
+            status ?: "Calibration complete"
+        } else {
+            "Round ${pair.round}/${pair.totalRounds} · blind comparison"
+        },
+        fontWeight = FontWeight.Bold,
+    )
+    Text("A/B ordering changes between rounds. Choose only by feel; candidate strength stays hidden until saved.")
+    Text("Use Crisp while calibrating so A/B only measures the device-specific adjustment.")
+
+    Spacer(Modifier.height(8.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !session.isComplete,
+        onClick = { haptics.previewCalibration(selectedTarget, pair.aScale) },
+    ) {
+        Text("Play A")
+    }
+    Spacer(Modifier.height(6.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !session.isComplete,
+        onClick = { haptics.previewCalibration(selectedTarget, pair.bScale) },
+    ) {
+        Text("Play B")
+    }
+    Spacer(Modifier.height(6.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !session.isComplete,
+        onClick = ::preferA,
+    ) {
+        Text("Prefer A")
+    }
+    Spacer(Modifier.height(6.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !session.isComplete,
+        onClick = ::preferB,
+    ) {
+        Text("Prefer B")
+    }
+
+    Spacer(Modifier.height(8.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { resetSession() },
+    ) {
+        Text("Restart this target")
+    }
+    Spacer(Modifier.height(6.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = {
+            HapticCalibrationPreferences.reset(ctx)
+            profileRevision += 1
+            status = "Device haptic profile reset to 100%"
+            resetSession()
+        },
+    ) {
+        Text("Reset all device calibration")
+    }
+
+    if (profileRevision < 0) Text("")
 }
 
 @Composable
@@ -240,7 +380,6 @@ private fun MotionMeter(sample: MotionCadenceSample, mode: AdaptiveMotionMode) {
     val speed = sample.keysPerSecond
     val speedLabel = speed?.let { "${((it * 10f).roundToInt() / 10f)} keys/s" } ?: "—"
     val factorLabel = "${(sample.factor * 100f).roundToInt()}%"
-
     Text("Mode ${mode.label} · cadence $speedLabel · motion $factorLabel")
 }
 
@@ -260,11 +399,7 @@ private fun MotionLabKey(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .premiumKeyMotion(
-                pressed = pressed,
-                enabled = true,
-                style = style,
-            )
+            .premiumKeyMotion(pressed = pressed, enabled = true, style = style)
             .background(Color(0xFFF1F1F1))
             .clickable(
                 interactionSource = interactionSource,
@@ -289,25 +424,16 @@ fun AdaptiveMotionPicker(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .selectable(
-                        selected = mode == selected,
-                        onClick = { onSelected(mode) },
-                    )
+                    .selectable(selected = mode == selected, onClick = { onSelected(mode) })
                     .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(
-                    selected = mode == selected,
-                    onClick = null,
-                    modifier = Modifier.size(20.dp),
-                )
+                RadioButton(selected = mode == selected, onClick = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text(mode.label)
                     Text(mode.description)
-                    if (mode == AdaptiveMotionMode.Balanced) {
-                        Text("Recommended")
-                    }
+                    if (mode == AdaptiveMotionMode.Balanced) Text("Recommended")
                 }
             }
         }
@@ -335,17 +461,11 @@ fun HapticStrengthPicker(onPreview: () -> Unit) {
                     .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(
-                    selected = strength == selected,
-                    onClick = null,
-                    modifier = Modifier.size(20.dp),
-                )
+                RadioButton(selected = strength == selected, onClick = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text(strength.label)
-                    if (strength == HapticStrength.Crisp) {
-                        Text("Recommended")
-                    }
+                    if (strength == HapticStrength.Crisp) Text("Recommended")
                 }
             }
         }
@@ -371,11 +491,7 @@ fun LayoutPicker() {
                     .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(
-                    selected = item == selected,
-                    onClick = null,
-                    modifier = Modifier.size(20.dp),
-                )
+                RadioButton(selected = item == selected, onClick = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(text = item.label)
             }
