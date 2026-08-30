@@ -35,6 +35,8 @@ data class HapticCalibrationPair(
  * Each A/B choice recenters the next pair around the preferred candidate and halves
  * the search step. Candidate ordering alternates every round so A is not always the
  * weaker option and B is not always the stronger option, reducing expectation bias.
+ * A neutral choice recenters on the exact midpoint so uncertainty narrows the search
+ * without biasing the result toward either the stronger or weaker candidate.
  */
 class HapticCalibrationSession(
     private val totalRounds: Int = CALIBRATION_ROUNDS,
@@ -60,6 +62,11 @@ class HapticCalibrationSession(
     fun chooseA(): Float = choose(currentPair().aScale)
 
     fun chooseB(): Float = choose(currentPair().bScale)
+
+    fun chooseIndifferent(): Float {
+        val pair = currentPair()
+        return choose((pair.aScale + pair.bScale) / 2f)
+    }
 
     fun preferredScale(): Float = lastPreferred
 
