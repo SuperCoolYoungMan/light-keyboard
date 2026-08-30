@@ -258,8 +258,7 @@ private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
         generation += 1
     }
 
-    fun preferA() {
-        val chosen = session.chooseA()
+    fun finishChoice(chosen: Float) {
         if (session.isComplete) {
             HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen)
             profileRevision += 1
@@ -270,16 +269,16 @@ private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
         }
     }
 
+    fun preferA() {
+        finishChoice(session.chooseA())
+    }
+
     fun preferB() {
-        val chosen = session.chooseB()
-        if (session.isComplete) {
-            HapticCalibrationPreferences.setScale(ctx, selectedTarget, chosen)
-            profileRevision += 1
-            status = "Saved ${selectedTarget.label} at ${scaleLabel(chosen)}"
-        } else {
-            pair = session.currentPair()
-            status = null
-        }
+        finishChoice(session.chooseB())
+    }
+
+    fun chooseIndifferent() {
+        finishChoice(session.chooseIndifferent())
     }
 
     Text("Target")
@@ -317,6 +316,7 @@ private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
         fontWeight = FontWeight.Bold,
     )
     Text("A/B ordering changes between rounds. Choose only by feel; candidate strength stays hidden until saved.")
+    Text("If A and B feel the same, use Same / can't tell. It narrows the search without favoring stronger or weaker haptics.")
     Text("Use Crisp while calibrating so A/B only measures the device-specific adjustment.")
 
     Spacer(Modifier.height(8.dp))
@@ -350,6 +350,14 @@ private fun HapticCalibrationLab(haptics: KeyboardHaptics) {
         onClick = ::preferB,
     ) {
         Text("Prefer B")
+    }
+    Spacer(Modifier.height(6.dp))
+    Button(
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !session.isComplete,
+        onClick = ::chooseIndifferent,
+    ) {
+        Text("Same / can't tell")
     }
 
     Spacer(Modifier.height(8.dp))
