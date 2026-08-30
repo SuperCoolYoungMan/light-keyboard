@@ -38,6 +38,36 @@ class HapticCalibrationTest {
     }
 
     @Test
+    fun `neutral choice keeps exact midpoint and only narrows uncertainty`() {
+        val session = HapticCalibrationSession()
+        val initial = session.currentPair()
+        val initialMidpoint = (initial.aScale + initial.bScale) / 2f
+        val initialGap = abs(initial.bScale - initial.aScale)
+
+        val chosen = session.chooseIndifferent()
+        val next = session.currentPair()
+        val nextMidpoint = (next.aScale + next.bScale) / 2f
+        val nextGap = abs(next.bScale - next.aScale)
+
+        assertEquals(initialMidpoint, chosen, 0.0001f)
+        assertEquals(initialMidpoint, nextMidpoint, 0.0001f)
+        assertEquals(initialMidpoint, session.preferredScale(), 0.0001f)
+        assertTrue(nextGap < initialGap)
+    }
+
+    @Test
+    fun `repeated neutral choices complete without strength bias`() {
+        val session = HapticCalibrationSession()
+
+        repeat(5) {
+            session.chooseIndifferent()
+        }
+
+        assertTrue(session.isComplete)
+        assertEquals(1f, session.preferredScale(), 0.0001f)
+    }
+
+    @Test
     fun `candidate ordering alternates so one letter is not always stronger`() {
         val session = HapticCalibrationSession()
         val first = session.currentPair()
