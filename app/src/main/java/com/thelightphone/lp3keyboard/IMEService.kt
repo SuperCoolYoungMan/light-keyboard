@@ -31,7 +31,7 @@ class IMEService : LifecycleInputMethodService(),
     private var viewModel: Lp3KeyboardViewModel<*>? = null
     private val hangulComposer = HangulComposer()
     private val haptics by lazy { KeyboardHaptics(this) }
-    private var suppressSpaceRepeatUntilNextPress = false
+    private val spaceLongPressGuard = SpaceLongPressGuard()
 
     private var layoutPrefs: SharedPreferences? = null
     private val layoutChangeListener =
@@ -192,7 +192,7 @@ class IMEService : LifecycleInputMethodService(),
     }
 
     override fun onSpecialKeyPressed(key: SpecialKey) {
-        if (key == SpecialKey.Space) suppressSpaceRepeatUntilNextPress = false
+        if (key == SpecialKey.Space) spaceLongPressGuard.onPress()
 
         val event = when (key) {
             SpecialKey.Space -> KeyboardHapticEvent.Space
@@ -241,6 +241,7 @@ class IMEService : LifecycleInputMethodService(),
     override fun onSpecialKeyReleased(key: SpecialKey) {
         when (key) {
             SpecialKey.Space -> {
+                if (spaceLongPressGuard.consumeRelease()) return
                 finishHangulComposition()
                 currentInputConnection?.commitText(" ", 1)
                 updateCapsMode()
@@ -268,7 +269,7 @@ class IMEService : LifecycleInputMethodService(),
 
     override fun onSpecialKeyLongPressed(key: SpecialKey) {
         if (key == SpecialKey.Space) {
-            suppressSpaceRepeatUntilNextPress = true
+            spaceLongPressGuard.onLongPress()
             haptics.perform(KeyboardHapticEvent.LanguageSwitch)
             toggleKoreanEnglishLayout()
             return
@@ -285,7 +286,7 @@ class IMEService : LifecycleInputMethodService(),
     override fun onSpecialKeyRepeated(specialKey: SpecialKey) {
         when (specialKey) {
             SpecialKey.Space -> {
-                if (suppressSpaceRepeatUntilNextPress) return
+                if (spaceLongPressGuard.shouldSuppressRepeat()) return
                 haptics.perform(KeyboardHapticEvent.Space)
                 finishHangulComposition()
                 currentInputConnection?.commitText(" ", 1)
