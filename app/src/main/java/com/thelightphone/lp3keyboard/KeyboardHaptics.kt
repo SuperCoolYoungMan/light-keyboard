@@ -1,6 +1,7 @@
 package com.thelightphone.lp3keyboard
 
 import android.content.Context
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -36,6 +37,7 @@ data class HapticCapabilities(
 class KeyboardHaptics(private val context: Context) {
     private val vibrator =
         context.getSystemService(VibratorManager::class.java).defaultVibrator
+    private val backspaceRepeatHapticGate = BackspaceRepeatHapticGate()
 
     fun capabilities(): HapticCapabilities {
         val supported = vibrator.arePrimitivesSupported(
@@ -57,6 +59,11 @@ class KeyboardHaptics(private val context: Context) {
     }
 
     fun perform(event: KeyboardHapticEvent) {
+        if (event == KeyboardHapticEvent.BackspaceRepeat &&
+            !backspaceRepeatHapticGate.shouldEmit(SystemClock.uptimeMillis())
+        ) {
+            return
+        }
         perform(event, calibrationScaleOverride = null, strengthOverride = null)
     }
 
