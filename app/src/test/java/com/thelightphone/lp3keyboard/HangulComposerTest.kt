@@ -38,10 +38,37 @@ class HangulComposerTest {
     }
 
     @Test
+    fun `composes chained compound vowels from sequential Dubeolsik keys`() {
+        assertEquals("괘", compose("ㄱㅗㅏㅣ"))
+        assertEquals("궤", compose("ㄱㅜㅓㅣ"))
+    }
+
+    @Test
     fun `moves a final consonant before a following vowel`() {
         assertEquals("가나", compose("ㄱㅏㄴㅏ"))
         assertEquals("달가", compose("ㄷㅏㄹㄱㅏ"))
         assertEquals("갑시", compose("ㄱㅏㅂㅅㅣ"))
+    }
+
+    @Test
+    fun `splits every supported compound final before a following vowel`() {
+        val cases = listOf(
+            "ㄱㅏㄱㅅㅏ" to "각사",
+            "ㄱㅏㄴㅈㅏ" to "간자",
+            "ㄱㅏㄴㅎㅏ" to "간하",
+            "ㄱㅏㄹㄱㅏ" to "갈가",
+            "ㄱㅏㄹㅁㅏ" to "갈마",
+            "ㄱㅏㄹㅂㅏ" to "갈바",
+            "ㄱㅏㄹㅅㅏ" to "갈사",
+            "ㄱㅏㄹㅌㅏ" to "갈타",
+            "ㄱㅏㄹㅍㅏ" to "갈파",
+            "ㄱㅏㄹㅎㅏ" to "갈하",
+            "ㄱㅏㅂㅅㅏ" to "갑사",
+        )
+
+        cases.forEach { (keys, expected) ->
+            assertEquals("failed for $keys", expected, compose(keys))
+        }
     }
 
     @Test
@@ -86,5 +113,16 @@ class HangulComposerTest {
         assertEquals("가", composer.backspace())
         assertEquals("ㄱ", composer.backspace())
         assertEquals("", composer.backspace())
+    }
+
+    @Test
+    fun `backspace after resyllabification restores the previous compound final`() {
+        val composer = HangulComposer()
+        "ㄱㅏㅂㅅㅏ".forEach(composer::input)
+
+        assertEquals("갑사", composer.text)
+        assertEquals("값", composer.backspace())
+        assertEquals("갑", composer.backspace())
+        assertEquals("가", composer.backspace())
     }
 }
