@@ -24,6 +24,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".ImeDiagnosticsActivity"
+            android:exported="true"
+            android:label="IME diagnostics"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
         <service
             android:name=".IMEService"
             android:exported="false"
