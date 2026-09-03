@@ -26,6 +26,12 @@ object KoDubeolsik {
     private const val SECOND_ROW = "ㅁㄴㅇㄹㅎㅗㅓㅏㅣ"
     private const val THIRD_ROW = "ㅋㅌㅊㅍㅠㅜㅡ"
 
+    // Akkurat is the LP3's Latin UI face but does not reliably cover Hangul/Jamo.
+    // Use Android's explicit sans-serif family so Korean keys resolve through the
+    // platform's Korean sans fallback instead of inheriting an arbitrary default
+    // family on non-LP3 hosts.
+    private val KOREAN_KEY_FONT_FAMILY = FontFamily.SansSerif
+
     object LowerCaseLayout : Layout {
         override val isRootLayout: Boolean
             get() = true
@@ -35,7 +41,7 @@ object KoDubeolsik {
             options: KeyboardOptions,
             callback: Lp3KeyboardCallback
         ) {
-            CompositionLocalProvider(LocalAkkuratFamily provides FontFamily.Default) {
+            CompositionLocalProvider(LocalAkkuratFamily provides KOREAN_KEY_FONT_FAMILY) {
                 FirstRow(FIRST_ROW, callback, null, options.enableKeyAnimation)
                 SecondRow(SECOND_ROW, callback, null, options.enableKeyAnimation)
                 ThirdRow(THIRD_ROW, callback, null, options) {
@@ -64,7 +70,7 @@ object KoDubeolsik {
             options: KeyboardOptions,
             callback: Lp3KeyboardCallback
         ) {
-            CompositionLocalProvider(LocalAkkuratFamily provides FontFamily.Default) {
+            CompositionLocalProvider(LocalAkkuratFamily provides KOREAN_KEY_FONT_FAMILY) {
                 FirstRow(FIRST_ROW_SHIFT, callback, null, options.enableKeyAnimation)
                 SecondRow(SECOND_ROW, callback, null, options.enableKeyAnimation)
                 ThirdRow(THIRD_ROW, callback, null, options) {
@@ -93,7 +99,7 @@ object KoDubeolsik {
             options: KeyboardOptions,
             callback: Lp3KeyboardCallback
         ) {
-            CompositionLocalProvider(LocalAkkuratFamily provides FontFamily.Default) {
+            CompositionLocalProvider(LocalAkkuratFamily provides KOREAN_KEY_FONT_FAMILY) {
                 FirstRow(FIRST_ROW_SHIFT, callback, null, options.enableKeyAnimation)
                 SecondRow(SECOND_ROW, callback, null, options.enableKeyAnimation)
                 ThirdRow(THIRD_ROW, callback, null, options) {
