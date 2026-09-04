@@ -1,5 +1,7 @@
 package com.thelightphone.lp3keyboard
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -9,6 +11,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 internal data class ImeDiagnosticSnapshot(
@@ -38,6 +41,14 @@ internal object ImeDiagnostics {
         .mapNotNull(::normalizeImeId)
         .toSet()
 
+    internal fun formatReport(snapshot: ImeDiagnosticSnapshot): String = buildString {
+        appendLine("Light Keyboard · IME diagnostics")
+        appendLine("This keyboard enabled: ${yesNo(snapshot.enabled)}")
+        appendLine("This keyboard is default: ${yesNo(snapshot.isDefault)}")
+        appendLine("Enabled IME count: ${snapshot.enabledImeCount}")
+        append("Default IME: ${snapshot.defaultImeId ?: "none"}")
+    }
+
     fun read(context: Context): ImeDiagnosticSnapshot {
         val resolver = context.contentResolver
         val enabledRaw = Settings.Secure.getString(resolver, Settings.Secure.ENABLED_INPUT_METHODS)
@@ -55,6 +66,8 @@ internal object ImeDiagnostics {
             defaultImeId = defaultRaw?.takeIf { it.isNotBlank() },
         )
     }
+
+    private fun yesNo(value: Boolean): String = if (value) "YES" else "NO"
 }
 
 /**
@@ -64,6 +77,7 @@ internal object ImeDiagnostics {
  */
 class ImeDiagnosticsActivity : AppCompatActivity() {
     private lateinit var status: TextView
+    private var latestSnapshot: ImeDiagnosticSnapshot? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,6 +96,10 @@ class ImeDiagnosticsActivity : AppCompatActivity() {
             addView(Button(this@ImeDiagnosticsActivity).apply {
                 text = "Refresh status"
                 setOnClickListener { refreshStatus() }
+            })
+            addView(Button(this@ImeDiagnosticsActivity).apply {
+                text = "Copy diagnostics"
+                setOnClickListener { copyDiagnostics() }
             })
             addView(Button(this@ImeDiagnosticsActivity).apply {
                 text = "Open keyboard settings"
@@ -108,13 +126,14 @@ class ImeDiagnosticsActivity : AppCompatActivity() {
 
     private fun refreshStatus() {
         val snapshot = ImeDiagnostics.read(this)
-        status.text = buildString {
-            appendLine("\nThis keyboard enabled: ${yesNo(snapshot.enabled)}")
-            appendLine("This keyboard is default: ${yesNo(snapshot.isDefault)}")
-            appendLine("Enabled IME count: ${snapshot.enabledImeCount}")
-            append("Default IME: ${snapshot.defaultImeId ?: "none"}\n")
-        }
+        latestSnapshot = snapshot
+        status.text = "\n${ImeDiagnostics.formatReport(snapshot).substringAfter('\n')}\n"
     }
 
-    private fun yesNo(value: Boolean): String = if (value) "YES" else "NO"
+    private fun copyDiagnostics() {
+        val snapshot = latestSnapshot ?: ImeDiagnostics.read(this).also { latestSnapshot = it }
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("Light Keyboard IME diagnostics", ImeDiagnostics.formatReport(snapshot)))
+        Toast.makeText(this, "Diagnostics copied", Toast.LENGTH_SHORT).show()
+    }
 }
