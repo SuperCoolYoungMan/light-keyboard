@@ -35,4 +35,40 @@ class ImeDiagnosticsTest {
         assertTrue(ImeDiagnostics.parseEnabledImeIds(null).isEmpty())
         assertTrue(ImeDiagnostics.parseEnabledImeIds("").isEmpty())
     }
+
+    @Test
+    fun `diagnostic report is stable and preserves raw default ime id`() {
+        val report = ImeDiagnostics.formatReport(
+            ImeDiagnosticSnapshot(
+                enabled = true,
+                isDefault = false,
+                enabledImeCount = 3,
+                defaultImeId = "com.light/.EmbeddedKeyboard;subtype=7",
+            ),
+        )
+
+        assertEquals(
+            """Light Keyboard · IME diagnostics
+This keyboard enabled: YES
+This keyboard is default: NO
+Enabled IME count: 3
+Default IME: com.light/.EmbeddedKeyboard;subtype=7""",
+            report,
+        )
+    }
+
+    @Test
+    fun `diagnostic report renders missing default ime safely`() {
+        val report = ImeDiagnostics.formatReport(
+            ImeDiagnosticSnapshot(
+                enabled = false,
+                isDefault = false,
+                enabledImeCount = 0,
+                defaultImeId = null,
+            ),
+        )
+
+        assertTrue(report.contains("This keyboard enabled: NO"))
+        assertTrue(report.endsWith("Default IME: none"))
+    }
 }
